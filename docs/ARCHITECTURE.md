@@ -1,0 +1,326 @@
+# ATLAS-SAGE: ARCHITECTURE
+
+**Status:** ACTIVE  
+**Version:** 0.2  
+**Thesis reference:** `THESIS-SSR.md` — this document implements the SSR pattern described there  
+**Validation status:** Operational SSR loop proven (THESIS-SSR.md section 4). Domain SSR loop pending Sprint 4.
+
+---
+
+## 1. System Overview
+
+```
+Raw Source Files (polyglot)
+        │
+        ▼
+┌─────────────────────────┐
+│   LLM Orchestrator      │  ← Tier-1: routing, classification
+│   + Tool Registry       │  ← Tier-2: deep reasoning, summarisation
+│   + Skill Registry      │  ← self-equips before each run
+└────────┬────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│   Graph + Vector Store  │  ← nodes, edges, summaries, embeddings
+└────────┬────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│   SME Chat Interface    │  ← query, correct, explore
+└─────────────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│   Gap Report + Skills   │  ← operational self-improvement
+└─────────────────────────┘
+```
+
+---
+
+## 2. Model Tiering
+
+### Tier-1 — Routing and Classification
+- Fast, low-latency
+- Responsibilities: intent detection, file type classification, tool selection, vector query generation, metadata filtering
+- Does not reason over code content
+
+### Tier-2 — Deep Reasoning (SME Engine)
+- Large context window (128K+)
+- Responsibilities: domain summary generation, cross-language edge inference, community summarisation, SME query responses
+- Operates over assembled graph payloads
+
+The orchestrator decides which tier handles each task. Neither tier is hardcoded to specific models — the LiteLLM gateway abstracts model selection.
+
+---
+
+## 3. Tool Registry
+
+The orchestrator selects tools at runtime based on file type and available skills. Tools expose a uniform contract regardless of the underlying parser.
+
+### Tool Contract (output shape)
+
+```json
+{
+  "node_id": "uuid",
+  "language": "csharp|typescript|html|css|unknown",
+  "source_file": "relative/path/to/file",
+  "chunk_type": "class|method|component|style-rule|interface|...",
+  "raw_cleaned": "boilerplate-stripped source text",
+  "edges": [
+    {
+      "type": "CALLS|IMPORTS|RENDERS|STYLES|HTTP_CALLS|IMPLEMENTS|INHERITS",
+      "target_node_id": "uuid",
+      "confidence": "deterministic|probabilistic|inferred"
+    }
+  ]
+}
+```
+
+### Tool Registry is Skill-Driven
+
+There is no hardcoded tool list. Tools are discovered and loaded via the Skill registry at runtime. When the orchestrator encounters a file type, it searches for a skill that covers it. If none exists, the LLM creates one.
+
+The Tool Contract above is the only fixed interface. What produces that output is determined by the skill loaded for the file type encountered — not by this document.
+
+---
+
+## 4. Store Schema
+
+### Node
+
+```json
+{
+  "node_id": "uuid",
+  "language": "string",
+  "source_file": "string",
+  "chunk_type": "string",
+  "raw_cleaned": "string",
+  "summary": "string",
+  "community_id": "string|null",
+  "embedding": "vector",
+  "created_at": "timestamp",
+  "updated_at": "timestamp"
+}
+```
+
+### Edge
+
+```json
+{
+  "edge_id": "uuid",
+  "source_node_id": "uuid",
+  "target_node_id": "uuid",
+  "type": "string",
+  "confidence": "deterministic|probabilistic|inferred",
+  "evidence": "string",
+  "created_at": "timestamp"
+}
+```
+
+### Community
+
+```json
+{
+  "community_id": "uuid",
+  "level": "integer",
+  "member_node_ids": ["uuid"],
+  "summary": "string",
+  "embedding": "vector",
+  "updated_at": "timestamp"
+}
+```
+
+### Correction
+
+```json
+{
+  "correction_id": "uuid",
+  "session_id": "uuid",
+  "target_type": "node|edge|community",
+  "target_id": "uuid",
+  "original": "string",
+  "corrected": "string",
+  "captured_at": "timestamp"
+}
+```
+
+---
+
+## 5. Write Path — Ingestion Pipeline
+
+The orchestrator runs hands-free. It makes all decisions using tools and skills.
+
+```
+1. SKILL DISCOVERY
+   search_skills(file_types_in_repo)
+   → missing skills → create_skill() → proceed
+
+2. FILE CLASSIFICATION
+   Tier-1 classifies each file by language and chunk type
+
+3. TOOL SELECTION
+   Orchestrator selects tool per file from registry
+
+4. AST EXTRACTION
+   Tool extracts nodes + edges → uniform contract output
+
+5. BOILERPLATE STRIPPING
+   AST used as filter — strips DI, logging, framework noise
+   Cleaned raw code preserved for LLM input
+
+6. SUMMARY GENERATION
+   Tier-2 receives cleaned raw code
+   Generates: Domain Purpose, Logic Flow, Inferred Constraints
+
+7. EMBEDDING
+   BGE-M3 (or equivalent) embeds the generated summary
+   Not the raw code — the semantic interpretation
+
+8. STORE SYNC
+   Node written with: summary, embedding, raw_cleaned, edges
+   Graph edges written with confidence metadata
+
+9. COMMUNITY DETECTION
+   Leiden/Louvain over AST graph
+   Hierarchy: solution → project → namespace → class → method
+   Community summaries generated by Tier-2
+
+10. GAP REPORT EMISSION
+    Unresolved edges, unparseable files, missing tools
+    Written as run artifact
+```
+
+---
+
+## 6. Read Path — SME Query
+
+```
+1. INTENT DETECTION (Tier-1, <10ms)
+   Classifies query: dependency/architectural/local/cross-domain
+
+2. VECTOR SEARCH
+   Query embedded → LanceDB search → candidate nodes returned
+
+3. GRAPH TRAVERSAL
+   graph_traverse(node_id, depth) follows AST edges
+   Community summaries pulled for cross-cutting queries
+
+4. PAYLOAD ASSEMBLY
+   Static prefix ordering — structural context locked at top
+   Maximises prompt cache hit rate
+
+5. TIER-2 REASONING
+   Full context payload → deep reasoning → streamed answer
+   Confident interpretation — hallucination anchored to graph
+
+6. CORRECTION CAPTURE
+   SME correction triggers: correction stored against target node/edge
+   Graph updated — Loop 1 active
+```
+
+---
+
+## 7. Skill System
+
+Skills are the operational self-improvement mechanism. They describe how to use a tool — never what the codebase means.
+
+### Skill Discovery (before each run)
+
+```
+search_skills(["scss", "parser"])
+  → found: PostCSS SCSS Skill → load and proceed
+  → not found: delegate to specialist LLM → skill returned → store → proceed
+  → specialist cannot resolve after N loops → human escalation
+```
+
+### Skill Quality Standards
+
+Every skill produced by the specialist LLM must cover:
+
+- **Tool identity and install instructions**
+- **Execution environment** — declared upfront (Node.js / MSBuild / project-aware sandbox)
+- **Input/output contract** — maps to Tool Contract above
+- **Summarisation instructions** — per chunk type, plain English domain meaning
+- **Known limitations** — what the tool cannot resolve
+- **Edge types it can produce** — with confidence levels
+
+### Tool Selection Hierarchy
+
+The specialist LLM selects tools in priority order. Lower tiers are fallbacks, not preferences:
+
+```
+1. Native / official library    → highest semantic fidelity
+   Example: sass (Dart Sass JS API) for SCSS
+
+2. Established parser           → structural fidelity
+   Example: postcss + postcss-scss
+
+3. Generic parser (Tree-sitter) → syntactic only, no semantics
+
+4. Generated script             → last resort, fragile, not preferred
+```
+
+### Knowledge Handbook
+
+Produced alongside the skill in Interaction 1. Enriched in subsequent SSR loops. Contains:
+
+- What the file type is and its application role
+- What domain signals it carries
+- What it cannot express (no state, no business logic etc.)
+- Naming convention patterns and their domain meaning
+- Relationship to other file types in the stack
+
+The handbook informs summarisation. The skill provides the mechanism. They are produced together, evolved together, stored together.
+
+### Skill Creation Prompt Constraint
+
+Skill creation prompts contain code samples only — never client context, domain context, or codebase-specific framing. This is the IP boundary. The specialist LLM sees the code structure. It never sees what the code means to the organisation.
+
+### Skills are IP-safe
+
+A skill describes how a tool works against a file type. It contains zero knowledge about what any specific file means. Skills are reusable across every codebase ATLAS-SAGE is pointed at and can be shared across organisations without legal risk.
+
+---
+
+## 8. Gap Report
+
+Emitted at the end of every ingestion run.
+
+```markdown
+## ATLAS-SAGE Gap Report — {date} — {repo}
+
+### Unparseable Files
+- {count} files, {file_types}
+- Recommendation: {skill or tool needed}
+
+### Unresolved Edges
+- {count} cross-language edges unresolved
+- Reason: {dynamic construction / missing contract / unknown pattern}
+- Recommendation: {swagger spec / new skill / SME review}
+
+### Low Confidence Edges
+- {count} inferred edges
+- Recommendation: SME review session
+
+### Skills Created This Run
+- {list}
+
+### Skills Missing (no auto-creation possible)
+- {list} — requires engineer action
+```
+
+Gap reports feed custom instructions for the next run. The system is incrementally more capable on each execution.
+
+---
+
+## 9. Cross-Language Edge Strategy
+
+| Scenario | Strategy | Confidence |
+|---|---|---|
+| Generated TS client (e.g. orval) | Type match across contract node | Deterministic |
+| Static URL string literal | String match against extracted routes | Deterministic |
+| Template literal partial | Fixed segment match | Probabilistic |
+| Dynamic URL construction | Tier-2 inference over candidates | Inferred |
+| No OpenAPI spec | Synthetic contract from route attributes | Deterministic |
+
+The LLM decides which strategy applies per edge. This table is reference, not pipeline logic.
