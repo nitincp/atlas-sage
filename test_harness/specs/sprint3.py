@@ -1,0 +1,201 @@
+"""Sprint 3 — Community summaries answer cross-domain queries.
+
+Language: Python (built-in ast — same mini-app as sprint 1)
+Thesis claim: Community summaries answer cross-domain queries (Sprint 3)
+
+New in this sprint:
+  - Community detection (Louvain) runs after ingestion
+  - LLM generates domain-level summaries for each community
+  - Community summaries are stored with embeddings
+  - Query engine routes domain-level questions to search_communities first
+"""
+from atlas_sage.testing.runner import QuerySpec, SprintSpec
+
+SAMPLE_MODELS = """\
+from dataclasses import dataclass, field
+from typing import List
+import uuid
+
+
+@dataclass
+class Product:
+    product_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    name: str = ""
+    price: float = 0.0
+    stock: int = 0
+
+    def is_available(self, quantity: int) -> bool:
+        return self.stock >= quantity
+
+
+@dataclass
+class OrderItem:
+    product: Product
+    quantity: int
+
+    @property
+    def subtotal(self) -> float:
+        return self.product.price * self.quantity
+
+
+@dataclass
+class Order:
+    order_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    customer_id: str = ""
+    items: List[OrderItem] = field(default_factory=list)
+    status: str = "pending"
+
+    @property
+    def total(self) -> float:
+        return sum(item.subtotal for item in self.items)
+
+    def add_item(self, item: OrderItem) -> None:
+        self.items.append(item)
+
+    def confirm(self) -> None:
+        if not self.items:
+            raise ValueError("Cannot confirm empty order")
+        self.status = "confirmed"
+"""
+
+SAMPLE_REPOSITORY = """\
+from abc import ABC, abstractmethod
+from typing import List, Optional
+from models import Order
+
+
+class IOrderRepository(ABC):
+    @abstractmethod
+    def save(self, order: Order) -> str:
+        ...
+
+    @abstractmethod
+    def find_by_id(self, order_id: str) -> Optional[Order]:
+        ...
+
+    @abstractmethod
+    def find_by_customer(self, customer_id: str) -> List[Order]:
+        ...
+
+
+class OrderRepository(IOrderRepository):
+    def __init__(self) -> None:
+        self._store: dict[str, Order] = {}
+
+    def save(self, order: Order) -> str:
+        self._store[order.order_id] = order
+        return order.order_id
+
+    def find_by_id(self, order_id: str) -> Optional[Order]:
+        return self._store.get(order_id)
+
+    def find_by_customer(self, customer_id: str) -> List[Order]:
+        return [o for o in self._store.values() if o.customer_id == customer_id]
+"""
+
+SAMPLE_SERVICE = """\
+from typing import List, Optional
+from models import Order, OrderItem, Product
+from repository import IOrderRepository
+
+
+class OrderService:
+    def __init__(self, repository: IOrderRepository) -> None:
+        self._repository = repository
+
+    def create_order(self, customer_id: str) -> Order:
+        order = Order(customer_id=customer_id)
+        self._repository.save(order)
+        return order
+
+    def add_item(self, order_id: str, product: Product, quantity: int) -> Order:
+        order = self._repository.find_by_id(order_id)
+        if order is None:
+            raise ValueError(f"Order {order_id} not found")
+        if not product.is_available(quantity):
+            raise ValueError(f"Insufficient stock for {product.name}")
+        order.add_item(OrderItem(product=product, quantity=quantity))
+        self._repository.save(order)
+        return order
+
+    def confirm_order(self, order_id: str) -> Order:
+        order = self._repository.find_by_id(order_id)
+        if order is None:
+            raise ValueError(f"Order {order_id} not found")
+        order.confirm()
+        self._repository.save(order)
+        return order
+
+    def get_customer_orders(self, customer_id: str) -> List[Order]:
+        return self._repository.find_by_customer(customer_id)
+"""
+
+SAMPLE_CONTROLLER = """\
+from typing import Any, Dict, List
+from service import OrderService
+from models import Product
+
+
+class OrderController:
+    def __init__(self, service: OrderService) -> None:
+        self._service = service
+
+    def handle_create_order(self, customer_id: str) -> Dict[str, Any]:
+        order = self._service.create_order(customer_id)
+        return {"order_id": order.order_id, "status": order.status}
+
+    def handle_add_item(
+        self, order_id: str, product_data: Dict[str, Any], quantity: int
+    ) -> Dict[str, Any]:
+        product = Product(
+            name=product_data["name"],
+            price=product_data["price"],
+            stock=product_data.get("stock", 0),
+        )
+        order = self._service.add_item(order_id, product, quantity)
+        return {"order_id": order.order_id, "total": order.total, "item_count": len(order.items)}
+
+    def handle_confirm_order(self, order_id: str) -> Dict[str, Any]:
+        order = self._service.confirm_order(order_id)
+        return {"order_id": order.order_id, "status": order.status, "total": order.total}
+
+    def handle_get_customer_orders(self, customer_id: str) -> List[Dict[str, Any]]:
+        orders = self._service.get_customer_orders(customer_id)
+        return [{"order_id": o.order_id, "status": o.status, "total": o.total} for o in orders]
+"""
+
+SPEC = SprintSpec(
+    name="sprint3",
+    suite_name="python_order_processing",
+    files={
+        "models.py": SAMPLE_MODELS,
+        "repository.py": SAMPLE_REPOSITORY,
+        "service.py": SAMPLE_SERVICE,
+        "controller.py": SAMPLE_CONTROLLER,
+    },
+    pattern="**/*.py",
+    min_nodes=8,
+    min_source_files=3,
+    expected_edge_types={"IMPLEMENTS", "INJECTS", "CALLS", "INHERITS", "RETURNS"},
+    native_parser_keyword="ast",
+    min_communities=1,
+    queries=[
+        QuerySpec(
+            name="domain_summary",
+            question=(
+                "What does this system do? Give me a high-level domain overview — "
+                "what are the key responsibilities and how do the major components relate?"
+            ),
+            expected_keywords=["order", "service"],
+            min_length=150,
+        ),
+        QuerySpec(
+            name="blast_radius",
+            question=(
+                "What is the blast radius if IOrderRepository changes? "
+                "Which classes and files would be impacted?"
+            ),
+            expected_keywords=["orderrepository", "orderservice", "service", "repository"],
+        ),
+    ],
+)

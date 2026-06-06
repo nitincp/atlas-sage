@@ -159,6 +159,38 @@ class AtlasStore:
         row["limitations"] = json.loads(row.get("limitations", "[]"))
         return row
 
+    # ── Communities ───────────────────────────────────────────────────────────
+
+    def write_community(self, community: dict[str, Any]) -> str:
+        row = {
+            "community_id": community["community_id"],
+            "level": community.get("level", 0),
+            "member_node_ids": community.get("member_node_ids", []),
+            "summary": community.get("summary", ""),
+            "embedding": community.get("embedding", [0.0] * 3072),
+            "updated_at": _now(),
+        }
+        self._table("communities").add([row])
+        return community["community_id"]
+
+    def list_communities(self, limit: int = 100) -> list[dict]:
+        rows = self._table("communities").search().limit(limit).to_list()
+        for row in rows:
+            row.pop("embedding", None)
+        return rows
+
+    def vector_search_communities(self, embedding: list[float], limit: int = 3) -> list[dict]:
+        return self._table("communities").search(embedding).limit(limit).to_list()
+
+    def update_node_community(self, node_id: str, community_id: str) -> None:
+        self._table("nodes").update(
+            where=f"node_id = '{node_id}'",
+            values={"community_id": community_id},
+        )
+
+    def get_all_edges(self) -> list[dict]:
+        return self._table("edges").search().to_list()
+
     # ── Corrections ───────────────────────────────────────────────────────────
 
     def write_correction(self, correction: dict[str, Any]) -> str:
