@@ -1,7 +1,7 @@
 # ATLAS-SAGE: BACKLOG
 
 **Status:** ACTIVE  
-**Version:** 0.2  
+**Version:** 0.3  
 **Methodology:** Walking skeleton first. One language. One file. One node stored correctly.  
 **Thesis reference:** `THESIS-SSR.md` — every sprint validates or evolves a claim in the thesis  
 **Project purpose:** ATLAS-SAGE is the live proof of SSR. Sprints are evidence, not just features.
@@ -46,13 +46,13 @@ Sprint 4 is the most important validation. Operational SSR is proven (THESIS-SSR
 | AS-04 | Single .cs file → orchestrator searches for C# parsing skill → creates if missing | ✅ Done |
 | AS-05 | Skill-loaded tool: AST extraction → boilerplate strip → cleaned raw code | ✅ Done |
 | AS-06 | Tier-2 call: cleaned code → domain summary generated | ✅ Done |
-| AS-07 | BGE-M3 embed summary → node written to LanceDB | ✅ Done |
-| AS-08 | Manual SME query → vector search → single node retrieved → Tier-2 answer | ✅ Done |
-| AS-09 | Verify end-to-end: question in, answer out, node traceable to skill used | ⏳ Pending live LLM run |
+| AS-07 | Cloud embed summary (gemini-embedding-001, 3072-dim) → node written to LanceDB | ✅ Done |
+| AS-08 | Manual SME query → vector search → single node retrieved → LLM answer | ✅ Done |
+| AS-09 | Verify end-to-end: question in, answer out, node traceable to skill used | ✅ Done |
 
 **Exit criteria:** SME asks a question about the ingested file. System returns a plausible, traceable answer via a skill it found or created. No MSBuildWorkspace hardcoded — tool choice is the skill's concern.
 
-**Status:** Scaffold complete and committed. AS-01–AS-03 verified by passing tests. AS-04–AS-09 wired and ready — exit criteria met once end-to-end run completes with live LLM (set `.env`, run `pytest tests/test_sprint0.py -v`).
+**Status:** ✅ COMPLETE. Validated end-to-end with SCSS (`tests/test_scss.py` — 2 passed, ~80s, ~$0.056). PostCSS skill created on-the-fly by LLM; 12 AST nodes with typed edges stored; query returned grounded structured answer. C# ingestion deferred to Sprint 1 (requires multi-file context anyway).
 
 ---
 
@@ -66,7 +66,7 @@ Sprint 4 is the most important validation. Operational SSR is proven (THESIS-SSR
 | AS-11 | Edge extraction: CALLS, IMPLEMENTS, INHERITS, INJECTS |
 | AS-12 | Edge storage with confidence metadata |
 | AS-13 | graph_traverse tool wired at query time |
-| AS-14 | Query depth control: Tier-1 determines traversal depth by intent |
+| AS-14 | Query depth control: orchestrator determines traversal depth by intent |
 | AS-15 | Blast radius query: "what is impacted if X changes" — traversal answer |
 
 **Exit criteria:** SME asks a cross-file architectural question. System traverses graph and assembles multi-node context. Answer references multiple files correctly.
@@ -80,8 +80,8 @@ Sprint 4 is the most important validation. Operational SSR is proven (THESIS-SSR
 | ID | Task |
 |---|---|
 | AS-16 | Point orchestrator at repo containing .ts files |
-| AS-17 | Orchestrator delegates to specialist LLM for TypeScript parsing skill |
-| AS-18 | Specialist produces skill + handbook in Interaction 1 |
+| AS-17 | Orchestrator calls create_skill for TypeScript (skill_model generates it) |
+| AS-18 | Skill produced with handbook, summarisation_instructions, application_role |
 | AS-19 | SSR loop runs — exit criteria declared, safety limit 5 loops |
 | AS-20 | Skill must declare execution environment (Node.js vs project-aware) |
 | AS-21 | Specialist must propose native/official library before parser fallback |
@@ -100,9 +100,9 @@ Sprint 4 is the most important validation. Operational SSR is proven (THESIS-SSR
 |---|---|
 | AS-20 | Leiden/Louvain community detection over graph edges |
 | AS-21 | Community hierarchy mapped to: project → namespace → class |
-| AS-22 | Community summary generation via Tier-2 |
+| AS-22 | Community summary generation via orchestrator LLM |
 | AS-23 | Community nodes stored with embeddings |
-| AS-24 | Cross-cutting query routing: Tier-1 identifies domain-level intent → community summaries pulled |
+| AS-24 | Cross-cutting query routing: orchestrator identifies domain-level intent → community summaries pulled |
 
 **Exit criteria:** SME asks "what does the payment domain do?" System answers from community summary, not individual chunks.
 
@@ -160,10 +160,10 @@ Sprint 4 is the most important validation. Operational SSR is proven (THESIS-SSR
 
 | ID | Item |
 |---|---|
-| AS-40 | LiteLLM gateway — model-agnostic routing, local model support |
-| AS-41 | vLLM / Ollama local deployment option |
+| AS-40 | LiteLLM gateway — model-agnostic routing, local model support | ✅ Done |
+| AS-41 | vLLM / Ollama local deployment option | ✅ Done (ollama/ prefix supported via ATLAS_OLLAMA_BASE) |
 | AS-42 | Git-push hook for incremental re-ingestion |
-| AS-43 | Prompt cache optimisation (static prefix ordering) |
+| AS-43 | Prompt cache optimisation (static prefix ordering) | ⏳ Sprint 1 candidate |
 | AS-44 | Multi-repo support |
 | AS-45 | gRPC / protobuf tool skill |
 | AS-46 | OpenAPI spec ingestion when available |
