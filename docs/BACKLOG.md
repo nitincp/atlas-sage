@@ -128,15 +128,22 @@ Cost: ~$0.43 per run (claude-haiku-4-5-20251001). Zero code changes — skill on
 
 **Goal:** Community detection over AST graph. Tier-2 community summaries generated.
 
-| ID | Task |
-|---|---|
-| AS-24 | Leiden/Louvain community detection over graph edges |
-| AS-25 | Community hierarchy mapped to: project → namespace → class |
-| AS-26 | Community summary generation via orchestrator LLM |
-| AS-27 | Community nodes stored with embeddings |
-| AS-28 | Cross-cutting query routing: orchestrator identifies domain-level intent → community summaries pulled |
+| ID | Task | Status |
+|---|---|---|
+| AS-24 | Leiden/Louvain community detection over graph edges | ✅ Done |
+| AS-25 | Community hierarchy mapped to: project → namespace → class | ✅ Done |
+| AS-26 | Community summary generation via orchestrator LLM | ✅ Done |
+| AS-27 | Community nodes stored with embeddings | ✅ Done |
+| AS-28 | Cross-cutting query routing: orchestrator identifies domain-level intent → community summaries pulled | ✅ Done |
 
 **Exit criteria:** SME asks "what does the payment domain do?" System answers from community summary, not individual chunks.
+
+**Status:** ✅ COMPLETE. Validated with Python (`test_harness/specs/sprint3.py`).
+Louvain community detection over 60 nodes / 27 edges; LLM generated domain summaries per community;
+`search_communities` wired to query engine with domain-intent routing in system prompt.
+Domain summary query routed to community summaries and answered at correct abstraction level.
+Cost: ~$0.41 per run (claude-haiku-4-5-20251001). Gemini embedding hit 429 rate limit mid-run;
+litellm retry (num_retries=3) recovered without intervention — run still passed.
 
 ---
 
@@ -202,6 +209,7 @@ Cost: ~$0.43 per run (claude-haiku-4-5-20251001). Zero code changes — skill on
 | AS-51 | SME session history as community correction source | — |
 | AS-52 | Gap report dashboard UI | — |
 | AS-53 | Thesis evolution — update THESIS-SSR.md after Sprint 4 domain SSR validation | — |
+| AS-56 | Provider fallback for rate limits — LiteLLM Router with `fallbacks` per model tier; `ATLAS_EMBED_MODEL_FALLBACK` for embedding 429s; currently `num_retries=3` retries same provider which works but burns quota faster | — |
 | AS-54 | Telemetry / distributed trace integration — LiteLLM callbacks + Langfuse for per-call span visibility (timing, token breakdown by tool call, skill cache hit rate). Complement to run_log stats, not a replacement. Defer to Sprint 3+ when prompts are stable and production usage begins. | — |
 | AS-55 | Skill validation loop — post-execute skill, compare output against spec, send delta back to skill model (max 5 loops). Currently the orchestrator inline-recovers; this formalises the loop with exit criteria. | — |
 

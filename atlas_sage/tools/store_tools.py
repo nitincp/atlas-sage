@@ -128,3 +128,80 @@ def graph_traverse(node_id: str, depth: int, store: AtlasStore, direction: str =
 def list_nodes_tool(store: AtlasStore, limit: int = 200) -> list[dict]:
     """Return all stored nodes (summary + metadata, no embeddings). Used for cross-file edge inference."""
     return store.list_nodes(limit=limit)
+
+
+def detect_communities_tool(store: AtlasStore) -> list[dict]:
+    """Run Louvain community detection on the edge graph.
+
+    Returns community groups with member_node_ids and truncated member_summaries
+    so the orchestrator can generate domain summaries without extra round-trips.
+    """
+    import uuid
+
+    import networkx as nx
+    from networkx.algorithms.community import louvain_communities
+
+    nodes = store.list_nodes(limit=1000)
+    edges = store.get_all_edges()
+    node_map = {n["node_id"]: n for n in nodes}
+
+    G = nx.Graph()
+    for n in nodes:
+        G.add_node(n["node_id"])
+    for edge in edges:
+        src, tgt = edge["source_node_id"], edge["target_node_id"]
+        if src in node_map and tgt in node_map:
+            G.add_edge(src, tgt)
+
+    if G.number_of_edges() == 0:
+        raw_groups = [{nid} for nid in G.nodes()]
+    else:
+        raw_groups = louvain_communities(G, seed=42)
+
+    result = []
+    for group in raw_groups:
+        member_ids = list(group)
+        community_id = str(uuid.uuid4())
+        member_summaries = [
+            {
+                "node_id": nid,
+                "source_file": node_map[nid].get("source_file", ""),
+                "chunk_type": node_map[nid].get("chunk_type", ""),
+                "summary": (node_map[nid].get("summary") or "")[:400],
+            }
+            for nid in member_ids
+            if nid in node_map
+        ]
+        result.append({
+            "community_id": community_id,
+            "level": 0,
+            "member_node_ids": member_ids,
+            "member_summaries": member_summaries,
+        })
+
+    return result
+
+
+def store_community_tool(community: dict, embed_model: str, store: AtlasStore) -> dict:
+    """Embed community summary and write to communities table. Updates member nodes' community_id."""
+    summary = community.get("summary", "")
+    if not summary:
+        raise ValueError("Community must have a 'summary' before storing.")
+    embedding = _embed(summary, embed_model)
+    community["embedding"] = embedding
+    community_id = store.write_community(community)
+    for node_id in community.get("member_node_ids", []):
+        try:
+            store.update_node_community(node_id, community_id)
+        except Exception:
+            pass
+    return {"community_id": community_id, "members": len(community.get("member_node_ids", []))}
+
+
+def search_communities_tool(query_text: str, embed_model: str, store: AtlasStore, limit: int = 3) -> list[dict]:
+    """Embed query_text and return the top matching community summaries."""
+    embedding = _embed(query_text, embed_model)
+    results = store.vector_search_communities(embedding, limit=limit)
+    for row in results:
+        row.pop("embedding", None)
+    return results

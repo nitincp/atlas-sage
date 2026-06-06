@@ -11,7 +11,16 @@ from typing import Any
 
 from .executor import execute_skill
 from .skill_tools import create_skill, search_skills
-from .store_tools import graph_traverse, list_nodes_tool, store_edge_tool, store_node, vector_search_tool
+from .store_tools import (
+    detect_communities_tool,
+    graph_traverse,
+    list_nodes_tool,
+    search_communities_tool,
+    store_community_tool,
+    store_edge_tool,
+    store_node,
+    vector_search_tool,
+)
 
 
 def dispatch_tool(name: str, args: dict[str, Any], context: dict) -> Any:
@@ -64,6 +73,20 @@ def dispatch_tool(name: str, args: dict[str, Any], context: dict) -> Any:
                 args.get("depth", 2),
                 store,
                 direction=args.get("direction", "outbound"),
+            )
+
+        case "detect_communities":
+            return detect_communities_tool(store)
+
+        case "store_community":
+            return store_community_tool(args, config.embed_model, store)
+
+        case "search_communities":
+            return search_communities_tool(
+                args["query_text"],
+                config.embed_model,
+                store,
+                limit=args.get("limit", 3),
             )
 
         case _:

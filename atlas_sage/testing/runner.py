@@ -111,6 +111,7 @@ class SprintSpec:
     queries: list[QuerySpec]
     required_deterministic_edges: int = 1
     required_execution_environment: str = ""  # if set, skill.execution_environment must match
+    min_communities: int = 0  # >0 enables community detection step + assertions
 
 
 # ---------------------------------------------------------------------------
@@ -134,6 +135,11 @@ class RunArtifact:
     cost_usd: float = 0.0
     in_tokens: int = 0
     out_tokens: int = 0
+    communities: list[dict] = None
+
+    def __post_init__(self):
+        if self.communities is None:
+            self.communities = []
 
 
 # ---------------------------------------------------------------------------
@@ -152,6 +158,7 @@ def run_sprint(
     Assertions run internally so pass/fail is captured for the index.
     Raises AssertionError on failure (after saving artifacts and updating index).
     """
+    from ..community.pipeline import build_communities
     from ..ingestion.pipeline import ingest_directory
     from ..query.pipeline import query
     from ..store.store import AtlasStore
@@ -178,6 +185,14 @@ def run_sprint(
     nodes = store._table("nodes").search().to_list()
     edges = store._table("edges").search().to_list()
 
+    communities: list[dict] = []
+    if spec.min_communities > 0:
+        _, c_stats = build_communities(cfg)
+        total_cost += c_stats.get("cost_usd", 0.0)
+        total_in += c_stats.get("in_tokens", 0)
+        total_out += c_stats.get("out_tokens", 0)
+        communities = store.list_communities()
+
     answers: dict[str, str] = {}
     for q in spec.queries:
         answer, q_stats = query(q.question, cfg)
@@ -191,7 +206,7 @@ def run_sprint(
     skill_model = getattr(cfg, "skill_model", "")
 
     run_dir = _save_run(
-        spec, skill, nodes, edges, report, answers,
+        spec, skill, nodes, edges, communities, report, answers,
         prompt_version, suite_version, duration_s,
         orchestrator_model, skill_model, total_cost, total_in, total_out,
     )
@@ -200,6 +215,7 @@ def run_sprint(
         skill=skill,
         nodes=nodes,
         edges=edges,
+        communities=communities,
         ingestion_report=report,
         query_answers=answers,
         run_dir=run_dir,
@@ -238,6 +254,7 @@ def assert_sprint(artifact: RunArtifact, spec: SprintSpec) -> None:
     _assert_native_parser(artifact, spec)
     _assert_nodes(artifact, spec)
     _assert_edges(artifact, spec)
+    _assert_communities(artifact, spec)
     _assert_queries(artifact, spec)
 
 
@@ -306,6 +323,19 @@ def _assert_edges(artifact: RunArtifact, spec: SprintSpec) -> None:
     )
 
 
+def _assert_communities(artifact: RunArtifact, spec: SprintSpec) -> None:
+    if spec.min_communities == 0:
+        return
+    comms = artifact.communities
+    assert len(comms) >= spec.min_communities, (
+        f"Expected ≥{spec.min_communities} communities, got {len(comms)}"
+    )
+    missing_summary = [c.get("community_id", "?") for c in comms if not c.get("summary")]
+    assert not missing_summary, (
+        f"Communities missing summaries: {missing_summary}"
+    )
+
+
 def _assert_queries(artifact: RunArtifact, spec: SprintSpec) -> None:
     for q in spec.queries:
         answer = artifact.query_answers.get(q.name, "")
@@ -331,6 +361,7 @@ def _save_run(
     skill: dict,
     nodes: list[dict],
     edges: list[dict],
+    communities: list[dict],
     report: str,
     answers: dict[str, str],
     prompt_version: str,
@@ -354,6 +385,7 @@ def _save_run(
         "duration_s": round(duration_s),
         "nodes": len(nodes),
         "edges": len(edges),
+        "communities": len(communities),
         "edge_types": sorted({e["type"] for e in edges}),
         "skill_name": skill.get("name") or "-",
         "tool_name": skill.get("tool_name") or "-",
@@ -374,6 +406,8 @@ def _save_run(
     _write_json(out / "nodes.json",
                 [{k: v for k, v in n.items() if k != "embedding"} for n in nodes])
     _write_json(out / "edges.json", edges)
+    _write_json(out / "communities.json",
+                [{k: v for k, v in c.items() if k != "embedding"} for c in communities])
     (out / "ingestion_report.md").write_text(report, encoding="utf-8")
 
     queries_dir = out / "queries"
@@ -447,6 +481,7 @@ def _get_or_create_suite(spec: SprintSpec) -> str:
 
 
 def _collect_prompts() -> dict[str, str]:
+    from ..community.pipeline import _COMMUNITY_SYSTEM
     from ..ingestion.pipeline import (
         _INGESTION_SYSTEM,
         _MULTI_FILE_INGESTION_SYSTEM,
@@ -455,6 +490,7 @@ def _collect_prompts() -> dict[str, str]:
     from ..tools.skill_tools import _CREATE_SKILL_SYSTEM
 
     return {
+        "community": _COMMUNITY_SYSTEM,
         "create_skill": _CREATE_SKILL_SYSTEM,
         "ingestion": _INGESTION_SYSTEM,
         "multi_file_ingestion": _MULTI_FILE_INGESTION_SYSTEM,
@@ -540,6 +576,7 @@ def _append_run_log(spec: SprintSpec, artifact: RunArtifact, passed: bool) -> No
         "skill_id": (artifact.skill.get("skill_id") or "")[:8],
         "nodes": len(artifact.nodes),
         "edges": len(artifact.edges),
+        "communities": len(artifact.communities),
         "edge_types": ", ".join(sorted({e["type"] for e in artifact.edges})),
         "duration_s": round(artifact.duration_s),
         "passed": passed,
@@ -595,10 +632,11 @@ def _rebuild_index() -> None:
             cost = f"${e.get('cost_usd', 0):.4f}"
             tok = f"{e.get('in_tokens', 0)}↑{e.get('out_tokens', 0)}↓"
             omodel = e.get("orchestrator_model", "-")
+            comms = e.get("communities", "-")
             run_rows.append(
                 f"| {e['run_num']} | {e['timestamp']} | {e['sprint']}"
                 f" | {e['file_type']} | {e['skill_name']} | {e['tool_name']}"
-                f" | {e['skill_id']} | {e['nodes']} | {e['edges']}"
+                f" | {e['skill_id']} | {e['nodes']} | {e['edges']} | {comms}"
                 f" | {e['edge_types']} | {e['duration_s']}s"
                 f" | {pass_mark} | {e['prompt_version']} | {e['suite_version']}"
                 f" | {omodel} | {cost} | {tok}"  # noqa: E501
@@ -619,10 +657,10 @@ def _rebuild_index() -> None:
         + "\n"
         "## Test Runs\n\n"
         "| # | Timestamp | Sprint | Type | Skill | Tool | Skill ID"
-        " | Nodes | Edges | Edge Types | Dur | Pass | Prompt | Suite"
+        " | Nodes | Edges | Comms | Edge Types | Dur | Pass | Prompt | Suite"
         " | Model | Cost | Tokens | Run Dir |\n"
         "|---|-----------|--------|------|-------|------|---------|"
-        "-------|-------|------------|-----|------|--------|-------|"
+        "-------|-------|-------|------------|-----|------|--------|-------|"
         "-------|------|--------|--------|\n"
         + ("\n".join(run_rows) + "\n" if run_rows else "")
     )

@@ -161,6 +161,64 @@ INGESTION_TOOLS = [
     },
 ]
 
+COMMUNITY_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "detect_communities",
+            "description": (
+                "Run Louvain community detection on the knowledge graph edges. "
+                "Returns community groups with member_node_ids and member_summaries "
+                "(truncated per-node summaries). "
+                "You must generate a domain-level summary for each group, then call store_community."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "store_community",
+            "description": (
+                "Embed the community summary and write the community to the knowledge graph. "
+                "Provide a domain-level summary synthesising what the group collectively does. "
+                "community_id and member_node_ids must come from detect_communities."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "community_id": {
+                        "type": "string",
+                        "description": "Exact community_id from detect_communities.",
+                    },
+                    "level": {
+                        "type": "integer",
+                        "description": "Hierarchy level: 0=project, 1=module/namespace, 2=class.",
+                    },
+                    "member_node_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Node IDs in this community (from detect_communities).",
+                    },
+                    "summary": {
+                        "type": "string",
+                        "description": (
+                            "Domain-level summary you generated. Must cover: "
+                            "Domain Scope, Key Components, Domain Responsibilities, "
+                            "and how this community connects to others."
+                        ),
+                    },
+                },
+                "required": ["community_id", "level", "member_node_ids", "summary"],
+            },
+        },
+    },
+]
+
 QUERY_TOOLS = [
     {
         "type": "function",
@@ -227,6 +285,34 @@ QUERY_TOOLS = [
                     },
                 },
                 "required": ["node_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_communities",
+            "description": (
+                "Search community summaries for cross-domain or high-level questions. "
+                "Use this FIRST when the question asks about a domain, module, system, or "
+                "high-level capability (e.g. 'what does the X domain do?', "
+                "'how does the payment system work?', 'summarise the order module'). "
+                "Community summaries answer these at a higher level of abstraction than individual nodes."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query_text": {
+                        "type": "string",
+                        "description": "The high-level question or domain term to search with.",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum communities to return (default 3).",
+                        "default": 3,
+                    },
+                },
+                "required": ["query_text"],
             },
         },
     },
