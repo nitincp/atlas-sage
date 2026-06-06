@@ -35,8 +35,8 @@ neighbourhood is more valuable than a correct silence in a zero-documentation co
 """
 
 
-def ingest(file_path: str, config: Config) -> str:
-    """Ingest a single source file. Returns the orchestrator's ingestion report."""
+def ingest(file_path: str, config: Config) -> tuple[str, dict]:
+    """Ingest a single source file. Returns (report, stats)."""
     if not os.path.isfile(file_path):
         raise FileNotFoundError(f"Source file not found: {file_path}")
 
@@ -46,7 +46,6 @@ def ingest(file_path: str, config: Config) -> str:
     ext = os.path.splitext(file_path)[1].lstrip(".")
     language_hint = _EXT_LANGUAGE.get(ext, ext)
 
-    # Read a small sample for skill creation (if needed) — syntax only, no client context
     with open(file_path, encoding="utf-8") as fh:
         sample = fh.read(3000)
 
@@ -58,14 +57,14 @@ def ingest(file_path: str, config: Config) -> str:
         f"Sample (first 3000 chars, for skill creation only if needed):\n```\n{sample}\n```"
     )
 
-    report = run_agent(
+    text, stats = run_agent(
         system_prompt=_INGESTION_SYSTEM,
         user_message=user_message,
         tools=INGESTION_TOOLS,
         config=config,
         context=context,
     )
-    return f"[model: {config.orchestrator_model}]\n{report}"
+    return f"[model: {config.orchestrator_model}]\n{text}", stats
 
 
 _CROSS_FILE_SYSTEM = """\
@@ -113,11 +112,28 @@ For each file in the list provided:
    Then call store_node with the node including your generated summary.
 
 After ALL files have been processed and their nodes stored:
-5. Call list_nodes to see all stored nodes.
-6. Reason about cross-file edges: CALLS, IMPLEMENTS, INHERITS, INJECTS.
-7. Call store_edge for each cross-file relationship you can infer from type names, method
-   signatures, and constructor parameters. Include evidence for each edge.
-8. Report: files ingested, nodes stored, cross-file edges created.
+5. Call list_nodes to see all stored nodes and their summaries.
+6. Reason about cross-file structural relationships. Edge types to consider:
+   - IMPORTS: file/module A imports a name declared in file B (deterministic — provable from import statements)
+   - INHERITS: class A extends/inherits from class B defined in another file (deterministic)
+   - IMPLEMENTS: class A implements an interface/abstract class B from another file (deterministic)
+   - CALLS: function/method in file A calls a function/method whose node is in file B (probabilistic)
+   - INJECTS: constructor/initialiser in file A declares a parameter typed as class/interface B
+     from another file (deterministic)
+7. For each relationship, call store_edge with:
+   - source_node_id / target_node_id: exact IDs from list_nodes — never guessed
+   - edge_type: one of the types above
+   - confidence: "deterministic" for import/inherit/implement/inject, "probabilistic" for calls,
+     "inferred" if uncertain
+   - evidence: one sentence explaining the structural evidence
+     (e.g. "OrderService.__init__ takes IOrderRepository parameter")
+8. Report: files ingested, nodes stored, cross-file edges created (count by type and confidence).
+
+Constraints:
+- Only create edges between nodes that appear in the list_nodes results.
+- Use exact node_id values — never construct or guess them.
+- Prefer fewer, higher-confidence edges over many speculative ones.
+- Skills contain zero domain knowledge — edges come from structural patterns only.
 
 Be confident in your summaries and edges. Anchored structure is more valuable than silence.
 """
@@ -127,8 +143,8 @@ def ingest_directory(
     dir_path: str,
     config: Config,
     pattern: str = "**/*.cs",
-) -> str:
-    """Ingest all matching files in a directory. Returns the orchestrator's ingestion report.
+) -> tuple[str, dict]:
+    """Ingest all matching files in a directory. Returns (report, stats).
 
     The orchestrator processes all files in a single agentic run so it can infer
     cross-file edges after all nodes are stored.
@@ -138,7 +154,7 @@ def ingest_directory(
 
     files = sorted(glob.glob(os.path.join(dir_path, pattern), recursive=True))
     if not files:
-        return f"No files matched pattern '{pattern}' in {dir_path}"
+        return f"No files matched pattern '{pattern}' in {dir_path}", {}
 
     store = AtlasStore(config.lancedb_path)
     context = {"store": store, "config": config}
@@ -147,7 +163,6 @@ def ingest_directory(
     ext = pattern.lstrip("*").lstrip(".").split(".")[-1]
     language_hint = _EXT_LANGUAGE.get(ext, ext)
 
-    # Include a small sample from the first file to help with skill creation
     with open(files[0], encoding="utf-8") as fh:
         sample = fh.read(2000)
 
@@ -159,7 +174,7 @@ def ingest_directory(
         f"Sample from first file (for skill creation if needed):\n```\n{sample}\n```"
     )
 
-    report = run_agent(
+    text, stats = run_agent(
         system_prompt=_MULTI_FILE_INGESTION_SYSTEM,
         user_message=user_message,
         tools=INGESTION_TOOLS,
@@ -167,7 +182,7 @@ def ingest_directory(
         context=context,
         max_iterations=50,
     )
-    return f"[model: {config.orchestrator_model}]\n{report}"
+    return f"[model: {config.orchestrator_model}]\n{text}", stats
 
 
 _EXT_LANGUAGE = {

@@ -27,50 +27,64 @@ no interpretation of what any specific codebase means. Skills are reusable acros
 Respond with a single JSON object — no markdown fences, no explanation:
 {
   "name": "<descriptive skill name>",
-  "tool_name": "<name of the parsing tool>",
+  "tool_name": "<name of the native/official parser — NOT tree-sitter unless no native exists>",
   "execution_environment": "<python|node|python+dotnet|python+node>",
-  "install_cmd": "<complete install command — runtime + packages, idempotent>",
-  "extraction_script": "<complete script — see runtime rules below>",
+  "install_cmd": "<complete install command — runtime + packages, idempotent; empty string if stdlib>",
+  "extraction_script": "<complete script — see Step 2 rules>",
   "chunk_types": ["<chunk types this skill produces>"],
   "edge_types": [{"type": "<CALLS|IMPORTS|etc>", "confidence": "<deterministic|probabilistic|inferred>"}],
   "limitations": ["<known limitations>"],
   "application_role": "<architectural role; which query categories weight these nodes HIGH vs LOW>",
   "summarisation_instructions": "<per-chunk-type guidance: domain signals, good vs bad summary, example>",
-  "handbook": "<one paragraph: file type, runtime role, domain signals it carries, what it cannot express>"
+  "handbook": "<TWO paragraphs — see Step 0 for required content>"
 }
 
-## Step 1 — Choose the tool (environment first, script second)
+## Step 0 — Identify and document the native parser (do this FIRST, before any script)
 
-Identify the NATIVE AST tool for the language, then choose the execution_environment:
+This step is NOT optional. Work through these four questions and put all answers in the
+FIRST paragraph of `handbook`:
 
-  C# → Roslyn (Microsoft.CodeAnalysis.CSharp, requires .NET SDK)
-    execution_environment: "python+dotnet"
-    install_cmd: "pip install tree-sitter tree-sitter-c-sharp"
-    extraction_script: Python — check shutil.which("dotnet") first.
-      If found: invoke Roslyn via dotnet subprocess, parse JSON output.
-      If not found: use tree-sitter-c-sharp as fallback (raise a warning, do not crash).
+  1. PARSER NAME: What is the native or de-facto official parser for this language/file type?
+     "Native" means: maintained by the language authors, or the community's first-choice library.
+     Examples:
+       Python       → ast  (stdlib, no install)
+       TypeScript   → ts-morph  (wraps TypeScript Compiler API; npm install ts-morph)
+       JavaScript   → @babel/parser or acorn  (npm install @babel/parser)
+       C#           → Roslyn  (Microsoft.CodeAnalysis.CSharp, requires dotnet SDK)
+       CSS / SCSS   → PostCSS  (npm install postcss postcss-scss)
+       HTML         → lxml + BeautifulSoup  (pip install lxml beautifulsoup4)
+       YAML / JSON  → PyYAML / json  (stdlib or pip install pyyaml)
+       Protobuf     → protoc or google.protobuf  (pip install grpcio-tools)
+     Tree-sitter is a FALLBACK for languages with no native option — never a first choice.
 
-  SCSS / CSS → PostCSS
-    execution_environment: "node"
-    install_cmd: "npm install postcss postcss-scss uuid"
-    extraction_script: Node.js — self-executing, writes JSON to stdout.
+  2. JUSTIFICATION: One sentence on why this is the native choice, not a generic alternative.
+     Example: "ast is the CPython interpreter's own parser — same AST the runtime uses."
 
-  TypeScript / JavaScript → ts-morph or TypeScript compiler API
-    execution_environment: "node"
-    install_cmd: "npm install ts-morph"
-    extraction_script: Node.js — self-executing, writes JSON to stdout.
+  3. ENVIRONMENT SETUP: Runtime, install command, any required config.
+     Example: "Node.js ≥18; npm install ts-morph; no tsconfig required for single-file parsing."
 
-  Python → ast (stdlib, zero install)
-    execution_environment: "python"
-    install_cmd: ""
+  4. KEY API: The 2–3 primary calls used to parse and walk the AST.
+     Example: "ast.parse(source) → tree; ast.walk(tree) → nodes; isinstance(node, ast.ClassDef)"
 
-  HTML → lxml / BeautifulSoup
-    execution_environment: "python"
-    install_cmd: "pip install lxml beautifulsoup4"
+Set `tool_name` to the parser name from question 1 (e.g. "ast", "ts-morph", "PostCSS").
 
-  Generic fallback → tree-sitter with the language package
-    execution_environment: "python"
-    install_cmd: "pip install tree-sitter tree-sitter-<language>"
+The SECOND paragraph of `handbook` covers the file type's domain role:
+what domain signals it carries, what it is authoritative for, what it cannot express at runtime.
+
+## Step 1 — Choose execution_environment (informed by Step 0)
+
+  Python stdlib / pip packages       → "python"
+  Node.js npm packages               → "node"
+  Python + dotnet subprocess         → "python+dotnet"
+  Python orchestrating Node.js       → "python+node"
+
+Reference table (confirm with Step 0 reasoning, do not use blindly):
+  Python ast          → "python",          install_cmd: ""
+  ts-morph            → "node",            install_cmd: "npm install ts-morph"
+  PostCSS             → "node",            install_cmd: "npm install postcss postcss-scss"
+  Roslyn via dotnet   → "python+dotnet",   install_cmd: "pip install tree-sitter tree-sitter-c-sharp"
+  lxml + bs4          → "python",          install_cmd: "pip install lxml beautifulsoup4"
+  Tree-sitter (fallb) → "python",          install_cmd: "pip install tree-sitter tree-sitter-<lang>"
 
 ## Step 2 — Write the extraction_script
 
@@ -78,11 +92,10 @@ Identify the NATIVE AST tool for the language, then choose the execution_environ
   The executor runs the script via exec() in a Python namespace.
   Pre-set variables: source_code (str), file_path (str)
   Must assign: result = [list of node dicts]
-  When invoking a CLI tool:
+  When invoking a CLI tool (e.g. dotnet):
     • Availability check: shutil.which("dotnet") — raise RuntimeError with clear message if absent
     • Write helper scripts to tempfile; clean up in finally block
     • Capture output: subprocess.check_output([...], text=True, timeout=30)
-    • Parse JSON into the tool contract format
 
 ### Node.js runtime (execution_environment: node)
   The executor writes the script to a temp .js file and runs: node script.js <file_path>
@@ -90,25 +103,23 @@ Identify the NATIVE AST tool for the language, then choose the execution_environ
   Must write result to stdout: process.stdout.write(JSON.stringify(result))
   Do NOT use module.exports — the script must be fully self-executing.
 
-  Pre-installed npm packages (available via require): postcss, postcss-scss
+  Pre-installed npm packages (available via require): postcss, postcss-scss, ts-morph
   For UUID generation: use crypto.randomUUID() — built into Node.js, no require needed.
-  Do NOT require: uuid, lodash, or any package not listed above. Use only built-ins + the pre-installed list.
+  Do NOT require any package not in the pre-installed list above.
 
 ### Every node dict must contain:
   node_id (fresh uuid str), language, source_file (= file_path), chunk_type, raw_cleaned, edges (list)
 
 ## Step 3 — Write summarisation_instructions
 
-The ingestion orchestrator reads these per-chunk instructions to generate domain summaries.
 For EACH chunk type your skill produces, provide:
   • What domain signals to read from the raw code (names, modifiers, base types, etc.)
   • What a GOOD summary states — domain meaning, not technical syntax
-  • What to AVOID — do not restate types, do not describe CSS properties, do not paraphrase variable names
+  • What to AVOID — do not restate types, do not describe CSS properties, do not echo variable names
   • A concrete example: raw input → ideal summary
 
 ## Step 4 — Write application_role
 
-Guide the query engine on how to weight nodes from this file type:
   • HIGH weight queries: what this file type is authoritative for
   • LOW weight queries: what this file type cannot answer
   • Any architectural invariants (e.g. "never contains runtime logic")

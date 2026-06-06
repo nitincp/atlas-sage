@@ -33,13 +33,23 @@ def main() -> None:
 
     if args.command == "ingest":
         from .ingestion.pipeline import ingest
-        result = ingest(args.file_path, config)
-        print(result)
+        text, stats = ingest(args.file_path, config)
+        print(text)
+        _print_stats(stats)
 
     elif args.command == "query":
         from .query.pipeline import query
-        result = query(args.question, config)
-        print(result)
+        text, stats = query(args.question, config)
+        print(text)
+        _print_stats(stats)
+
+
+def _print_stats(stats: dict) -> None:
+    cost = stats.get("cost_usd", 0)
+    in_t = stats.get("in_tokens", 0)
+    out_t = stats.get("out_tokens", 0)
+    itr = stats.get("iterations", 0)
+    print(f"\n[cost=${cost:.6f} | in={in_t} out={out_t} | iter={itr}]")
 
 
 if __name__ == "__main__":

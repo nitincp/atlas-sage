@@ -26,3 +26,7 @@ yarn-error.log*
 # ── Test / tooling cache ──────────────────────────────────────────────────────
 .pytest_cache/
 .ruff_cache/
+
+# ── Test harness artifacts (prompts, suites, runs, index) ─────────────────────
+test_harness/
+test_runs/

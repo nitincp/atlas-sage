@@ -26,10 +26,10 @@ def run_agent(
     config: Config,
     context: dict[str, Any],
     max_iterations: int = 20,
-) -> str:
+) -> tuple[str, dict]:
     """Run the agentic tool-use loop.
 
-    Returns the final text response from the LLM once it stops calling tools.
+    Returns (final_text, stats) where stats = {cost_usd, in_tokens, out_tokens, iterations, model}.
     context is passed through to every tool dispatch call.
     """
     messages = [
@@ -83,7 +83,14 @@ def run_agent(
                 "run_agent done | iterations=%d | %.1fs total | in=%d out=%d | $%.6f total",
                 iteration + 1, total_elapsed, total_in, total_out, total_cost,
             )
-            return msg.content or ""
+            stats = {
+                "model": kwargs["model"],
+                "cost_usd": round(total_cost, 6),
+                "in_tokens": total_in,
+                "out_tokens": total_out,
+                "iterations": iteration + 1,
+            }
+            return msg.content or "", stats
 
         for tc in msg.tool_calls:
             tool_name = tc.function.name
@@ -103,7 +110,7 @@ def run_agent(
                 "content": json.dumps(result, default=str),
             })
 
-    raise RuntimeError(f"Agent exceeded {max_iterations} iterations without completing.")
+    raise RuntimeError(f"Agent exceeded {max_iterations} iterations without completing.")  # noqa: RET504
 
 
 def _serialise_tool_calls(tool_calls) -> list[dict] | None:

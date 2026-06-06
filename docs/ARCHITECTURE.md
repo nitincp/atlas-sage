@@ -1,7 +1,7 @@
 # ATLAS-SAGE: ARCHITECTURE
 
 **Status:** ACTIVE  
-**Version:** 0.2  
+**Version:** 0.3  
 **Thesis reference:** `THESIS-SSR.md` — this document implements the SSR pattern described there  
 **Validation status:** Operational SSR loop proven (THESIS-SSR.md section 4). Domain SSR loop pending Sprint 4.
 
@@ -237,12 +237,14 @@ search_skills(["scss", "parser"])
 
 Every skill produced by the specialist LLM must cover:
 
+- **Step 0 — Native parser declaration** (mandatory first step): parser name, justification for choosing it over alternatives, environment setup, 2–3 key API calls. Validated at test time via `native_parser_keyword` assertion.
 - **Tool identity and install instructions**
 - **Execution environment** — declared upfront (Node.js / MSBuild / project-aware sandbox)
 - **Input/output contract** — maps to Tool Contract above
 - **Summarisation instructions** — per chunk type, plain English domain meaning
 - **Known limitations** — what the tool cannot resolve
 - **Edge types it can produce** — with confidence levels
+- **Knowledge Handbook** — two structured paragraphs: (1) parser identity + primary API calls, (2) file type domain role and signals it carries
 
 ### Tool Selection Hierarchy
 
@@ -324,3 +326,58 @@ Gap reports feed custom instructions for the next run. The system is incremental
 | No OpenAPI spec | Synthetic contract from route attributes | Deterministic |
 
 The LLM decides which strategy applies per edge. This table is reference, not pipeline logic.
+
+---
+
+## 10. Test Harness
+
+`atlas_sage/testing/` contains the sprint validation framework. It is not test scaffolding — it is the SSR feedback loop for prompts.
+
+### Design Principle
+
+Each sprint is expressed as a `SprintSpec` (pure data). `run_sprint()` owns all execution, versioning, and artifact persistence. Adding a new sprint requires only a new `SprintSpec` declaration — no new test logic.
+
+### Directory Layout
+
+```
+test_harness/
+  index.md            ← rebuilt each run; three sections: Prompt Versions, Test Suites, Test Runs
+  run_log.json        ← append-only; source of truth; queryable without file traversal
+  prompts/
+    v001/
+      meta.json       ← {version, hash, timestamp, note}
+      create_skill.md, ingestion.md, multi_file_ingestion.md, query.md
+  test_suites/
+    python_order_processing_v001/
+      *.py            ← input files (frozen at hash time)
+      suite.json
+  runs/
+    20260606_183022/  ← IST timestamp, flat directory
+      meta.json       ← {sprint, suite, prompt_version, nodes, edges, cost_usd, in_tokens, out_tokens, orchestrator_model, skill_model, passed, duration_s}
+      output/
+        skill.json  nodes.json  edges.json  ingestion_report.md
+        queries/<name>.md
+```
+
+### Versioning
+
+- **Prompt version** — SHA-256 hash of all 4 system prompts combined. A new `prompts/v<N>/` is created automatically when any prompt changes. The auto-generated note records which prompts changed and by how many characters.
+- **Suite version** — SHA-256 hash of input file contents. Same input files tested against multiple prompt versions reuse the same suite directory.
+
+### Cost and Token Tracking
+
+`run_agent()` returns `tuple[str, dict]` where `dict` contains `{model, cost_usd, in_tokens, out_tokens, iterations}`. The runner accumulates these across all `ingest_directory()` and `query()` calls in a sprint run and writes totals to `meta.json` and `run_log.json`.
+
+### Harness Query CLI
+
+```bash
+# All runs
+python -m atlas_sage.testing.harness_query
+
+# Filter and aggregate
+python -m atlas_sage.testing.harness_query --sprint sprint1 --passed
+python -m atlas_sage.testing.harness_query --aggregate prompt_version
+python -m atlas_sage.testing.harness_query --model claude-haiku --json
+```
+
+Reads only `run_log.json` — no directory traversal needed.

@@ -1,10 +1,18 @@
-"""SCSS ingestion grounding test.
+"""Sprint 0 SCSS validation — PostCSS/Node.js skill, single-file ingestion.
 
-Uses PostCSS (Node.js) — fast, no dotnet, no heavy model downloads.
-Embedding: gemini/gemini-embedding-001 via LiteLLM (cloud, no local model).
+Language: SCSS (PostCSS — Node.js runtime)
+Thesis claim: SSR operational loop works end-to-end (Sprint 0)
+
+Edge types exercised:
+  IMPORTS — @import statements (deterministic)
+  USES    — @include mixin references (deterministic)
+
+AS-01 through AS-09: walking skeleton validated.
 
 Run:
     pytest tests/test_scss.py -v -s
+
+Artifacts saved to: test_runs/sprint0_scss/<timestamp>/
 """
 
 from __future__ import annotations
@@ -12,6 +20,12 @@ from __future__ import annotations
 import shutil
 
 import pytest
+
+from atlas_sage.testing.runner import QuerySpec, SprintSpec, run_sprint
+
+# ---------------------------------------------------------------------------
+# Sample SCSS — variables, mixins, selectors, imports, BEM nesting
+# ---------------------------------------------------------------------------
 
 SAMPLE_SCSS = """\
 $primary-color: #3498db;
@@ -56,6 +70,35 @@ $font-size-base: 16px;
 }
 """
 
+# ---------------------------------------------------------------------------
+# Sprint 0 SCSS specification — data only
+# ---------------------------------------------------------------------------
+
+SPRINT0_SCSS = SprintSpec(
+    name="sprint0_scss",
+    suite_name="scss_product_card",
+    files={"product.scss": SAMPLE_SCSS},
+    pattern="**/*.scss",
+    min_nodes=1,
+    min_source_files=1,
+    expected_edge_types={"IMPORTS", "USES", "CALLS", "INCLUDES"},
+    native_parser_keyword="postcss",
+    queries=[
+        QuerySpec(
+            name="ui_components",
+            question="What UI components are defined in the knowledge graph?",
+            expected_keywords=["product", "card", "price", "btn", "button", "danger"],
+            min_length=50,
+        ),
+    ],
+    required_deterministic_edges=0,  # SCSS may produce 0 cross-file edges on a single file
+)
+
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="module")
 def config():
@@ -74,61 +117,21 @@ def temp_db(tmp_path_factory):
 
 
 @pytest.fixture(scope="module")
-def sample_scss_file(tmp_path_factory):
-    d = tmp_path_factory.mktemp("scss_files")
-    f = d / "product.scss"
-    f.write_text(SAMPLE_SCSS)
-    return str(f)
+def src_dir(tmp_path_factory):
+    d = tmp_path_factory.mktemp("scss_src")
+    for name, content in SPRINT0_SCSS.files.items():
+        (d / name).write_text(content)
+    return str(d)
 
 
-def _make_config(config, lancedb_path: str):
-    return type(config)(
-        orchestrator_model=config.orchestrator_model,
-        skill_model=config.skill_model,
-        lancedb_path=lancedb_path,
-        embed_model=config.embed_model,
-    )
+# ---------------------------------------------------------------------------
+# Test — one function, all assertions delegated to assert_sprint()
+# ---------------------------------------------------------------------------
 
 
-def test_scss_ingest_creates_nodes(config, temp_db, sample_scss_file):
-    """Ingest a .scss file — verify skill uses PostCSS/Node and nodes are stored."""
-    from atlas_sage.ingestion.pipeline import ingest
-    from atlas_sage.store.store import AtlasStore
-
-    cfg = _make_config(config, temp_db)
-    report = ingest(sample_scss_file, cfg)
-
-    print(f"\n{report}")
-
-    store = AtlasStore(temp_db)
-
-    skills = store._table("skills").search().to_list()
-    assert len(skills) >= 1, "Expected a SCSS skill to be created"
-    skill = skills[0]
-    print(f"\nskill: {skill['name']} | env: {skill['execution_environment']} | tool: {skill['tool_name']}")
-
-    nodes = store._table("nodes").search().to_list()
-    assert len(nodes) >= 1, "Expected ≥1 node stored after SCSS ingestion"
-
-    chunk_types = {n["chunk_type"] for n in nodes}
-    print(f"chunk_types found: {chunk_types}")
-
-    # SCSS should produce at least one recognisable CSS construct.
-    # LLM-generated type names vary (e.g. "variable_declaration" vs "variable",
-    # "selector_rule" vs "style-rule") — match by keyword prefix.
-    keywords = {"variable", "mixin", "selector", "style", "import", "rule"}
-    assert any(
-        any(kw in ct for kw in keywords) for ct in chunk_types
-    ), f"Expected CSS-related chunk types, got {chunk_types}"
-
-
-def test_scss_query(config, temp_db):
-    """Query the SCSS graph — answer should reference product-card or price."""
-    from atlas_sage.query.pipeline import query
-
-    cfg = _make_config(config, temp_db)
-    answer = query("What UI components are defined in the knowledge graph?", cfg)
-
-    assert answer, "Query returned empty answer"
-    assert len(answer) > 50, f"Answer too short: {answer!r}"
-    print(f"\n{answer}")
+def test_scss(config, temp_db, src_dir):
+    """AS-01 through AS-09: SCSS ingest via PostCSS skill, query answered."""
+    artifact = run_sprint(SPRINT0_SCSS, config, temp_db, src_dir)
+    print(f"\nNodes: {len(artifact.nodes)} | Edges: {len(artifact.edges)} | {artifact.duration_s:.0f}s")
+    print(f"Skill: {artifact.skill.get('name')} ({artifact.skill.get('tool_name')})")
+    print(f"Artifacts: {artifact.run_dir}  prompt: {artifact.prompt_version}")

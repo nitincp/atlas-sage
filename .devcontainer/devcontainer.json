@@ -8,7 +8,8 @@
   "remoteEnv": {
     "SSH_AUTH_SOCK": "/ssh-agent",
     "OLLAMA_HOST": "http://host.docker.internal:11434",
-    "HF_HOME": "/home/vscode/.cache/huggingface"
+    "HF_HOME": "/home/vscode/.cache/huggingface",
+    "TZ": "Asia/Kolkata"
   },
   "runArgs": ["--add-host=host.docker.internal:host-gateway"],
   "mounts": [
