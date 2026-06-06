@@ -9,6 +9,7 @@ sentence-transformers          # BGE-M3 and others
 
 # --- Vector / graph store ---
 lancedb
+pyarrow
 
 # --- Community detection (Leiden/Louvain) ---
 networkx
@@ -17,6 +18,13 @@ python-igraph
 
 # --- HuggingFace model hub (download, model cards, snapshots) ---
 huggingface_hub
+
+# --- AST parsing (tree-sitter grammar packages added per skill) ---
+tree-sitter>=0.23.0
+tree-sitter-c-sharp
+
+# --- Config ---
+python-dotenv
 
 # --- Dev / test toolchain ---
 pytest

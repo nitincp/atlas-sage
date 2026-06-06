@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "atlas-sage"
+version = "0.1.0"
+description = "AST-anchored LLM Analysis System + accumulated knowledge graph"
+requires-python = ">=3.12"
+dependencies = [
+    "litellm",
+    "ollama",
+    "sentence-transformers",
+    "lancedb",
+    "networkx",
+    "leidenalg",
+    "python-igraph",
+    "huggingface_hub",
+    "tree-sitter>=0.23.0",
+    "tree-sitter-c-sharp",
+    "pyarrow",
+    "python-dotenv",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+]
+
+[project.scripts]
+atlas-sage = "atlas_sage.cli:main"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
