@@ -99,6 +99,25 @@ class QuerySpec:
 
 
 @dataclass
+class CorrectionSpec:
+    """Describes a programmatic SME correction to inject between two queries.
+
+    after_query:          name of the QuerySpec that must run before the correction is injected
+    target_node_keyword:  substring matched (case-insensitive) against node summaries to find
+                          the node to correct — first match wins
+    original:             what the system said (stored in the correction record as-is)
+    corrected:            what the SME says is actually true
+    session_id:           stable identifier for the test session
+    """
+
+    after_query: str
+    target_node_keyword: str
+    original: str
+    corrected: str
+    session_id: str = "sprint_harness"
+
+
+@dataclass
 class SprintSpec:
     name: str
     suite_name: str
@@ -112,6 +131,12 @@ class SprintSpec:
     required_deterministic_edges: int = 1
     required_execution_environment: str = ""  # if set, skill.execution_environment must match
     min_communities: int = 0  # >0 enables community detection step + assertions
+    correction: CorrectionSpec | None = None  # if set, injected between queries
+    findings: list[str] = None  # condensed learnings written after the sprint completes
+
+    def __post_init__(self):
+        if self.findings is None:
+            self.findings = []
 
 
 # ---------------------------------------------------------------------------
@@ -200,6 +225,11 @@ def run_sprint(
         total_cost += q_stats.get("cost_usd", 0.0)
         total_in += q_stats.get("in_tokens", 0)
         total_out += q_stats.get("out_tokens", 0)
+
+        # Inject correction after the designated query
+        if spec.correction and spec.correction.after_query == q.name:
+            _inject_correction(spec.correction, lancedb_path)
+            logger.info("correction injected after query '%s'", q.name)
 
     duration_s = time.monotonic() - t0
     orchestrator_model = getattr(cfg, "orchestrator_model", "")
@@ -396,6 +426,7 @@ def _save_run(
         "in_tokens": in_tokens,
         "out_tokens": out_tokens,
         "passed": None,  # updated by _append_run_log after assertions
+        "findings": spec.findings or [],
     }
     _write_json(run_dir / "meta.json", meta)
 
@@ -409,6 +440,11 @@ def _save_run(
     _write_json(out / "communities.json",
                 [{k: v for k, v in c.items() if k != "embedding"} for c in communities])
     (out / "ingestion_report.md").write_text(report, encoding="utf-8")
+    if spec.findings:
+        findings_lines = [f"# Findings — {spec.name}\n"]
+        for f in spec.findings:
+            findings_lines.append(f"- {f}")
+        (out / "findings.md").write_text("\n".join(findings_lines), encoding="utf-8")
 
     queries_dir = out / "queries"
     queries_dir.mkdir()
@@ -684,3 +720,31 @@ def _make_config(config, lancedb_path: str):
         lancedb_path=lancedb_path,
         embed_model=config.embed_model,
     )
+
+
+def _inject_correction(correction: CorrectionSpec, lancedb_path: str, config=None) -> str:
+    """Store a programmatic SME correction using the logical concept name as target_id.
+
+    No node lookup — the correction is stored with target_id = the human-readable
+    concept name (e.g. "OrderService"). search_corrections_tool finds it by text
+    matching against that name, so no UUID matching is required.
+    """
+    import uuid
+
+    from ..store.store import AtlasStore
+
+    store = AtlasStore(lancedb_path)
+    correction_id = str(uuid.uuid4())
+    store.write_correction({
+        "correction_id": correction_id,
+        "session_id": correction.session_id,
+        "target_type": "node",
+        "target_id": correction.target_node_keyword,
+        "original": correction.original,
+        "corrected": correction.corrected,
+    })
+    logger.info(
+        "correction stored: target=%r correction_id=%s",
+        correction.target_node_keyword, correction_id[:8],
+    )
+    return correction_id

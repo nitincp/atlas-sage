@@ -161,6 +161,13 @@ litellm retry (num_retries=3) recovered without intervention — run still passe
 
 **Exit criteria:** SME corrects a wrong edge inference. Next query against same node reflects correction. System is measurably smarter.
 
+**Status:** ✅ COMPLETE. Validated with Python (`test_harness/specs/sprint4.py`).
+`search_corrections` called before any graph search — correction surfaced as first line of Q2 answer: "SME Correction on Record: Unit of Work pattern…atomically."
+`get_corrections(node_id)` per-node loop proved unreliable (LLM checks a subset of returned nodes; UUID match depends on selection order). Replaced with `search_corrections(query_text)` called once upfront — stable and node_id-independent.
+Corrections stored with logical concept name as `target_id` (e.g. `"orderservice"`) rather than UUID — stable across ingestion runs without requiring node lookup.
+Q1 baseline correctly reported no prior corrections. Domain SSR loop closes: speculative Q1 provoked correction; Q2 led with SME knowledge then grounded it in graph structure.
+Cost: ~$0.52/run (claude-haiku-4-5-20251001), up from sprint3 ~$0.41 — extra `search_corrections` call per query is the delta.
+
 ---
 
 ## Sprint 5 — Gap Reports (Loop 2)

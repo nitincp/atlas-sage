@@ -316,4 +316,89 @@ QUERY_TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_corrections",
+            "description": (
+                "Search all stored SME corrections for relevance to the current question. "
+                "Call this ONCE at the very start of every query, before vector_search. "
+                "Returns corrections whose text overlaps with the query — these represent "
+                "authoritative SME tacit knowledge that must take precedence over graph inference. "
+                "If this returns results, lead your answer with the SME-corrected understanding."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query_text": {
+                        "type": "string",
+                        "description": "The user's question, used to find relevant corrections.",
+                    }
+                },
+                "required": ["query_text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_corrections",
+            "description": (
+                "Return all SME corrections stored against a specific node, edge, or concept name. "
+                "Use after vector_search to check corrections for specific node_ids returned, "
+                "or with a concept name (e.g. 'OrderService') to check by logical identity. "
+                "Supplements search_corrections for targeted lookups."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "target_id": {
+                        "type": "string",
+                        "description": "A node_id, edge_id, community_id, or logical concept name.",
+                    }
+                },
+                "required": ["target_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "capture_correction",
+            "description": (
+                "Capture an SME correction against a node, edge, or community. "
+                "Call this immediately when the SME says your answer is wrong or incomplete. "
+                "Quote the specific claim being corrected in 'original', and the SME's "
+                "authoritative statement in 'corrected'. "
+                "This correction is permanently stored and will inform all future queries."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "target_type": {
+                        "type": "string",
+                        "enum": ["node", "edge", "community"],
+                        "description": "What kind of graph element is being corrected.",
+                    },
+                    "target_id": {
+                        "type": "string",
+                        "description": "The node_id, edge_id, or community_id being corrected.",
+                    },
+                    "original": {
+                        "type": "string",
+                        "description": "The specific claim from your answer that the SME is correcting (quoted).",
+                    },
+                    "corrected": {
+                        "type": "string",
+                        "description": "What the SME says is actually true.",
+                    },
+                    "session_id": {
+                        "type": "string",
+                        "description": "Current query session identifier (use any stable string if unknown).",
+                    },
+                },
+                "required": ["target_type", "target_id", "original", "corrected", "session_id"],
+            },
+        },
+    },
 ]

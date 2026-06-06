@@ -205,3 +205,66 @@ def search_communities_tool(query_text: str, embed_model: str, store: AtlasStore
     for row in results:
         row.pop("embedding", None)
     return results
+
+
+def capture_correction_tool(
+    target_type: str,
+    target_id: str,
+    original: str,
+    corrected: str,
+    session_id: str,
+    store: AtlasStore,
+) -> dict:
+    """Capture an SME correction against a node, edge, or community.
+
+    target_type: 'node' | 'edge' | 'community'
+    target_id:   the node_id / edge_id / community_id being corrected
+    original:    what the system said (quoted from the answer)
+    corrected:   what the SME says is actually true
+    session_id:  query session identifier (pass the current session id)
+
+    Returns {"correction_id": ..., "stored": True}
+    """
+    correction_id = str(uuid.uuid4())
+    store.write_correction({
+        "correction_id": correction_id,
+        "session_id": session_id,
+        "target_type": target_type,
+        "target_id": target_id,
+        "original": original,
+        "corrected": corrected,
+    })
+    return {"correction_id": correction_id, "stored": True}
+
+
+def get_corrections_tool(target_id: str, store: AtlasStore) -> list[dict]:
+    """Return all SME corrections previously captured for a node, edge, or community.
+
+    Call this before answering about any specific node to check whether the SME
+    has already corrected the system's inference about it.
+    """
+    return store.get_corrections(target_id)
+
+
+def search_corrections_tool(query_text: str, store: AtlasStore) -> list[dict]:
+    """Search all stored SME corrections for relevance to the current question.
+
+    Call this ONCE at the start of every query, before vector_search.
+    Returns corrections whose original, corrected, or target_id text overlaps
+    with the query. If results exist, they represent authoritative SME knowledge
+    that must take precedence over anything inferred from the graph.
+    """
+    all_corrections = store.get_all_corrections()
+    if not all_corrections:
+        return []
+    query_words = {w for w in query_text.lower().split() if len(w) > 2}
+    results = []
+    for c in all_corrections:
+        searchable = " ".join([
+            c.get("original", ""),
+            c.get("corrected", ""),
+            c.get("target_id", ""),
+        ]).lower()
+        if any(w in searchable for w in query_words):
+            results.append(c)
+    return results
