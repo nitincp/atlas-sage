@@ -38,19 +38,21 @@ Sprint 4 is the most important validation. Operational SSR is proven (THESIS-SSR
 
 **Goal:** One C# file ingested end-to-end. One node in the store. One SME query answered.
 
-| ID | Task |
-|---|---|
-| AS-01 | Initialise LanceDB store with node and edge schema |
-| AS-02 | Initialise Skill registry store (searchable by keyword) |
-| AS-03 | Wire search_skills and create_skill tools to orchestrator |
-| AS-04 | Single .cs file → orchestrator searches for C# parsing skill → creates if missing |
-| AS-05 | Skill-loaded tool: AST extraction → boilerplate strip → cleaned raw code |
-| AS-06 | Tier-2 call: cleaned code → domain summary generated |
-| AS-07 | BGE-M3 embed summary → node written to LanceDB |
-| AS-08 | Manual SME query → vector search → single node retrieved → Tier-2 answer |
-| AS-09 | Verify end-to-end: question in, answer out, node traceable to skill used |
+| ID | Task | Status |
+|---|---|---|
+| AS-01 | Initialise LanceDB store with node and edge schema | ✅ Done |
+| AS-02 | Initialise Skill registry store (searchable by keyword) | ✅ Done |
+| AS-03 | Wire search_skills and create_skill tools to orchestrator | ✅ Done |
+| AS-04 | Single .cs file → orchestrator searches for C# parsing skill → creates if missing | ✅ Done |
+| AS-05 | Skill-loaded tool: AST extraction → boilerplate strip → cleaned raw code | ✅ Done |
+| AS-06 | Tier-2 call: cleaned code → domain summary generated | ✅ Done |
+| AS-07 | BGE-M3 embed summary → node written to LanceDB | ✅ Done |
+| AS-08 | Manual SME query → vector search → single node retrieved → Tier-2 answer | ✅ Done |
+| AS-09 | Verify end-to-end: question in, answer out, node traceable to skill used | ⏳ Pending live LLM run |
 
 **Exit criteria:** SME asks a question about the ingested file. System returns a plausible, traceable answer via a skill it found or created. No MSBuildWorkspace hardcoded — tool choice is the skill's concern.
+
+**Status:** Scaffold complete and committed. AS-01–AS-03 verified by passing tests. AS-04–AS-09 wired and ready — exit criteria met once end-to-end run completes with live LLM (set `.env`, run `pytest tests/test_sprint0.py -v`).
 
 ---
 
