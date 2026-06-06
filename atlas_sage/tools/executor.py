@@ -15,6 +15,7 @@ Supports two runtimes determined by the skill's execution_environment field:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import pathlib
 import shutil
@@ -23,16 +24,46 @@ import tempfile
 
 from ..store.store import AtlasStore
 
+logger = logging.getLogger(__name__)
+
 # Resolve the project root (two levels up from this file: atlas_sage/tools/ → project root)
 _PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
 _NODE_MODULES = _PROJECT_ROOT / "node_modules"
 
+# Track which skill_ids have already had install_cmd run this process (idempotent).
+_installed_skills: set[str] = set()
+
+
+def _ensure_installed(skill: dict) -> None:
+    """Run the skill's install_cmd exactly once per process per skill_id."""
+    skill_id = skill.get("skill_id", "")
+    install_cmd = (skill.get("install_cmd") or "").strip()
+    if not install_cmd or skill_id in _installed_skills:
+        return
+    logger.info("skill install [%s]: %s", skill_id[:8], install_cmd)
+    result = subprocess.run(
+        install_cmd,
+        shell=True,
+        cwd=str(_PROJECT_ROOT),
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"Skill install failed (exit {result.returncode}):\n"
+            f"  cmd: {install_cmd}\n"
+            f"  stderr: {result.stderr[:500]}"
+        )
+    _installed_skills.add(skill_id)
+
 
 def execute_skill(skill_id: str, file_path: str, store: AtlasStore) -> list[dict]:
-    """Load skill, read file, run extraction_script, return raw nodes."""
+    """Load skill, run install_cmd if needed, then run extraction_script."""
     skill = store.get_skill(skill_id)
     if skill is None:
         raise ValueError(f"Skill not found: {skill_id}")
+
+    _ensure_installed(skill)
 
     env = skill.get("execution_environment", "python")
 

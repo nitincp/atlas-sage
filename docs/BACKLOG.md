@@ -52,7 +52,7 @@ Sprint 4 is the most important validation. Operational SSR is proven (THESIS-SSR
 
 **Exit criteria:** SME asks a question about the ingested file. System returns a plausible, traceable answer via a skill it found or created. No MSBuildWorkspace hardcoded — tool choice is the skill's concern.
 
-**Status:** ✅ COMPLETE. Validated end-to-end with SCSS (`tests/test_scss.py`). PostCSS skill created on-the-fly by LLM; AST nodes with typed edges stored; query returned grounded structured answer. C# ingestion deferred to Sprint 1 (requires multi-file context anyway). Test rewritten to generic `SprintSpec` pattern during Sprint 1 infrastructure work.
+**Status:** ✅ COMPLETE. Validated end-to-end with SCSS (`test_harness/specs/sprint0_scss.py`). PostCSS skill created on-the-fly by LLM; AST nodes with typed edges stored; query returned grounded structured answer. C# ingestion deferred to Sprint 1 (requires multi-file context anyway). Test rewritten to generic `SprintSpec` pattern during Sprint 1 infrastructure work.
 
 ---
 
@@ -76,7 +76,7 @@ Sprint 4 is the most important validation. Operational SSR is proven (THESIS-SSR
 
 **Exit criteria:** SME asks a cross-file architectural question. System traverses graph and assembles multi-node context. Answer references multiple files correctly. Blast radius query identifies all dependent classes via inbound traversal.
 
-**Status:** ✅ COMPLETE. Validated with Python (`tests/test_sprint1.py`).  
+**Status:** ✅ COMPLETE. Validated with Python (`test_harness/specs/sprint1.py`).  
 Python AST skill created on-the-fly by LLM; nodes across 4 files; typed edges stored (IMPLEMENTS, INJECTS, CALLS, IMPORTS, USES).  
 Blast radius query correctly traced IOrderRepository → OrderService → OrderController via inbound depth=3.  
 Dependency query correctly traced OrderService outbound to IOrderRepository + model classes.  
@@ -103,18 +103,24 @@ Cost/token tracking live: ~$0.36 per Python sprint run, ~$0.15 per SCSS run (cla
 
 **Goal:** Orchestrator handles a second language purely through skill discovery. Skill quality standards enforced. Zero code change.
 
-| ID | Task |
-|---|---|
-| AS-16 | Point orchestrator at repo containing .ts files |
-| AS-17 | Orchestrator calls create_skill for TypeScript (skill_model generates it) |
-| AS-18 | Skill produced with handbook, summarisation_instructions, application_role |
-| AS-19 | SSR loop runs — exit criteria declared, safety limit 5 loops |
-| AS-20 | Skill must declare execution environment (Node.js vs project-aware) |
-| AS-21 | Specialist must propose native/official library before parser fallback |
-| AS-22 | Handbook stored alongside skill in registry |
-| AS-23 | Verify: second language processed without any code change — skill only |
+| ID | Task | Status |
+|---|---|---|
+| AS-16 | Point orchestrator at repo containing .ts files | ✅ Done |
+| AS-17 | Orchestrator calls create_skill for TypeScript (skill_model generates it) | ✅ Done |
+| AS-18 | Skill produced with handbook, summarisation_instructions, application_role | ✅ Done |
+| AS-19 | SSR loop runs — exit criteria declared, safety limit 5 loops | ✅ Done |
+| AS-20 | Skill must declare execution environment (Node.js vs project-aware) | ✅ Done |
+| AS-21 | Specialist must propose native/official library before parser fallback | ✅ Done |
+| AS-22 | Handbook stored alongside skill in registry | ✅ Done |
+| AS-23 | Verify: second language processed without any code change — skill only | ✅ Done |
 
 **Exit criteria:** A .ts file is ingested correctly via a skill that includes handbook, execution environment declaration, and used the TypeScript Compiler API (native) not Tree-sitter (generic fallback).
+
+**Status:** ✅ COMPLETE. Validated with TypeScript (`test_harness/specs/sprint2.py`).
+TypeScript AST Parser skill created on-the-fly by LLM using ts-morph (TypeScript Compiler API); execution_environment=node; handbook explicitly favours ts-morph over tree-sitter with reasoning.
+32 nodes across 4 files; 17 edges (IMPORTS, INJECTS, CALLS, IMPLEMENTS); all deterministic confidence.
+Self-healing observed: orchestrator created 3 skill versions (ts-morph API hallucinations on attempts 1–2), succeeded on attempt 3 of 5 allowed — SSR loop working as designed.
+Cost: ~$0.43 per run (claude-haiku-4-5-20251001). Zero code changes — skill only.
 
 ---
 

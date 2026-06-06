@@ -20,13 +20,18 @@ This file provides guidance to Claude Code when working in this repository.
 
 **SSR loop.** Structured Speculation + Reinforcement. The system generates confident, graph-anchored hypotheses. SME corrections are the primary knowledge artifact. See `docs/THESIS-SSR.md`.
 
+**Skill environment is self-declared — DO NOT OVERRIDE.** `create_skill` prompt provides OS-level capabilities only (Python 3.x and Node.js are available; no packages are assumed pre-installed). Every skill declares its own `install_cmd`. The executor runs `install_cmd` before the first extraction. Never list specific packages as pre-installed in the skill creation prompt. This is the boundary between the host environment and the skill's own setup responsibility.
+
+**Test harness is the only testing ground — HARD RULE, DO NOT OVERRIDE.** All sprint validation tests use `SprintSpec` + `run_sprint()` from `atlas_sage.testing.runner`. No standalone test scripts. A new sprint = one new file in `test_harness/specs/sprintN.py` containing `SPEC = SprintSpec(...)`. The runner at `tests/test_harness_runner.py` discovers it automatically. Zero test logic in spec files. Artifacts, prompt versioning, cost tracking, and pass/fail are handled by the harness.
+
 ## Commands
 
 ```bash
 # Run tests
-pytest
-pytest tests/test_sprint1.py -v -s   # Sprint 1 (Python, ~4min, ~$0.36)
-pytest tests/test_scss.py -v -s      # Sprint 0 SCSS (~2min, ~$0.15)
+pytest                                                    # all tests
+pytest tests/test_harness_runner.py -v -s                 # all sprint validations
+pytest tests/test_harness_runner.py -v -s -k sprint2      # one sprint
+pytest tests/test_sprint0.py -v -s                        # unit/integration tests only
 
 # Lint / format
 ruff check .
@@ -41,10 +46,8 @@ pip install -e ".[dev]"
 atlas-sage ingest <file>
 atlas-sage query "<question>"
 
-# Query the test harness run log (no file traversal)
-python -m atlas_sage.testing.harness_query
-python -m atlas_sage.testing.harness_query --sprint sprint1 --passed
-python -m atlas_sage.testing.harness_query --aggregate prompt_version --json
+# Query run log — see test_harness/README.md for full options
+python -m atlas_sage.testing.harness_query --aggregate sprint
 ```
 
 ## Target codebase (sample input)
@@ -100,20 +103,9 @@ All pipeline functions return `tuple[str, dict]` where `dict` is `{model, cost_u
 - `ingest_directory(dir_path, config, pattern) → (report, stats)`
 - `query(question, config) → (answer, stats)`
 
-## Test harness layout
+## Test harness
 
-```
-test_harness/
-  index.md          ← rebuilt each run
-  run_log.json      ← append-only, queryable
-  prompts/v<N>/     ← auto-created on any prompt change (SHA-256 hash)
-  test_suites/<name>_v<N>/  ← auto-created on input file change
-  runs/<timestamp>/ ← one dir per sprint run (IST timestamp)
-    meta.json       ← nodes, edges, cost_usd, in_tokens, out_tokens, model, passed
-    output/         ← skill.json, nodes.json, edges.json, ingestion_report.md, queries/
-```
-
-Prompt versioning is automatic — edit any system prompt and re-run tests; a new `prompts/v<N>/` is created with a diff note. Same input reused across prompt versions (suite hash is independent).
+See [`test_harness/README.md`](test_harness/README.md) for layout, spec format, extension guide, and query CLI.
 
 ## MCP configuration
 
