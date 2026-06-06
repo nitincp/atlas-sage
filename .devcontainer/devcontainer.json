@@ -1,6 +1,6 @@
 {
   "name": "ATLAS-SAGE Dev",
-  "image": "mcr.microsoft.com/devcontainers/universal:2",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
   "postCreateCommand": "bash .devcontainer/postCreateCommand.sh",
   "remoteEnv": {
     "SSH_AUTH_SOCK": "/ssh-agent"
@@ -14,8 +14,7 @@
         "ms-python.python",
         "ms-python.vscode-pylance",
         "ms-python.debugpy",
-        "charliermarsh.ruff",
-        "anthropic.claude-code"
+        "charliermarsh.ruff"
       ]
     }
   }
