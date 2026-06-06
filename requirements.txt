@@ -1,0 +1,24 @@
+# --- LLM gateway (model-agnostic routing, local + cloud) ---
+litellm
+
+# --- Local model inference ---
+ollama
+
+# --- Embeddings ---
+sentence-transformers          # BGE-M3 and others
+
+# --- Vector / graph store ---
+lancedb
+
+# --- Community detection (Leiden/Louvain) ---
+networkx
+leidenalg
+python-igraph
+
+# --- HuggingFace model hub (download, model cards, snapshots) ---
+huggingface_hub
+
+# --- Dev / test toolchain ---
+pytest
+pytest-asyncio
+ruff

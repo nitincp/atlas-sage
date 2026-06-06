@@ -2,21 +2,21 @@
   "mcpServers": {
     "github": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-github"
-      ],
+      "args": ["-y", "@modelcontextprotocol/server-github"],
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
       }
     },
     "filesystem": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-filesystem",
-        "/workspaces/atlas-sage"
-      ]
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/workspaces/atlas-sage"]
+    },
+    "ollama": {
+      "command": "npx",
+      "args": ["-y", "@iflow-mcp/ollama-mcp"],
+      "env": {
+        "OLLAMA_HOST": "${OLLAMA_HOST:-http://localhost:11434}"
+      }
     }
   }
 }

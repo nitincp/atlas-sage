@@ -1,9 +1,14 @@
 {
   "name": "ATLAS-SAGE Dev",
   "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "lts" }
+  },
   "postCreateCommand": "bash .devcontainer/postCreateCommand.sh",
   "remoteEnv": {
-    "SSH_AUTH_SOCK": "/ssh-agent"
+    "SSH_AUTH_SOCK": "/ssh-agent",
+    "OLLAMA_HOST": "http://host.docker.internal:11434",
+    "HF_HOME": "/workspaces/.cache/huggingface"
   },
   "mounts": [
     "source=${localEnv:SSH_AUTH_SOCK},target=/ssh-agent,type=bind"
