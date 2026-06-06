@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pyarrow as pa
 
-EMBEDDING_DIM = 1024  # BGE-M3
+EMBEDDING_DIM = 3072  # gemini-embedding-001 (default output dim)
 
 NODE_SCHEMA = pa.schema([
     pa.field("node_id", pa.string()),
@@ -54,15 +54,17 @@ CORRECTION_SCHEMA = pa.schema([
 SKILL_SCHEMA = pa.schema([
     pa.field("skill_id", pa.string()),
     pa.field("name", pa.string()),
-    pa.field("file_types", pa.string()),         # JSON list: ["csharp", ".cs"]
+    pa.field("file_types", pa.string()),              # JSON list: ["csharp", ".cs"]
     pa.field("tool_name", pa.string()),
-    pa.field("execution_environment", pa.string()),  # python|node|project-aware
+    pa.field("execution_environment", pa.string()),   # python|node|python+dotnet|python+node
     pa.field("install_cmd", pa.string()),
     pa.field("extraction_script", pa.large_string()),
-    pa.field("chunk_types", pa.string()),         # JSON list
-    pa.field("edge_types", pa.string()),          # JSON list
-    pa.field("limitations", pa.string()),         # JSON list
-    pa.field("handbook", pa.large_string()),
+    pa.field("chunk_types", pa.string()),             # JSON list
+    pa.field("edge_types", pa.string()),              # JSON list
+    pa.field("limitations", pa.string()),             # JSON list
+    pa.field("application_role", pa.large_string()),  # query-time weighting guidance
+    pa.field("summarisation_instructions", pa.large_string()),  # per-chunk summarisation prompts
+    pa.field("handbook", pa.large_string()),          # brief plain-English description
     pa.field("created_at", pa.timestamp("us", tz="UTC")),
     pa.field("version", pa.int32()),
 ])

@@ -10,8 +10,11 @@ from ..tools.definitions import QUERY_TOOLS
 _QUERY_SYSTEM = """\
 You are the ATLAS-SAGE query engine (SAGE). Answer questions about a codebase using the knowledge graph.
 
+IMPORTANT: ALWAYS call vector_search first — never ask for clarification before searching.
+The knowledge graph may contain the answer even if the question seems vague. Search first, then answer.
+
 Process:
-1. Call vector_search with the question to retrieve semantically relevant nodes.
+1. ALWAYS call vector_search with the question (or key terms from it) to retrieve semantically relevant nodes.
 2. If the question is architectural or cross-cutting, call graph_traverse on the most relevant
    node to gather connected context.
 3. Assemble context from the returned nodes and edges.
@@ -34,11 +37,11 @@ def query(question: str, config: Config) -> str:
     store = AtlasStore(config.lancedb_path)
     context = {"store": store, "config": config}
 
-    return run_agent(
+    answer = run_agent(
         system_prompt=_QUERY_SYSTEM,
         user_message=question,
-        tier=2,
         tools=QUERY_TOOLS,
         config=config,
         context=context,
     )
+    return f"[model: {config.orchestrator_model}]\n{answer}"

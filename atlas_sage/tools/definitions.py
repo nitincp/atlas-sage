@@ -86,7 +86,8 @@ INGESTION_TOOLS = [
             "description": (
                 "Embed the node's summary and write it to the knowledge graph. "
                 "You MUST populate the 'summary' field before calling this — "
-                "write a domain summary covering: Domain Purpose, Logic Flow, Inferred Constraints."
+                "write a domain summary covering: Domain Purpose, Logic Flow, Inferred Constraints. "
+                "Any edges in the node's 'edges' list are automatically persisted."
             ),
             "parameters": {
                 "type": "object",
@@ -96,11 +97,65 @@ INGESTION_TOOLS = [
                         "description": (
                             "Node in tool contract format. Required fields: node_id, language, "
                             "source_file, chunk_type, raw_cleaned, summary. "
-                            "Optional: edges (list of edge objects with type, target_node_id, confidence)."
+                            "Optional: edges (list of edge objects with type, target_node_id, confidence, evidence)."
                         ),
                     }
                 },
                 "required": ["node"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "store_edge",
+            "description": (
+                "Store a directed edge between two already-stored nodes. "
+                "Use this for cross-file edges (CALLS, IMPLEMENTS, INHERITS, INJECTS) "
+                "inferred after all nodes from multiple files have been stored."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "source_node_id": {"type": "string", "description": "node_id of the calling/dependent node."},
+                    "target_node_id": {"type": "string", "description": "node_id of the called/dependency node."},
+                    "edge_type": {
+                        "type": "string",
+                        "enum": ["CALLS", "IMPLEMENTS", "INHERITS", "INJECTS", "IMPORTS", "USES", "RETURNS"],
+                        "description": "Semantic relationship type.",
+                    },
+                    "confidence": {
+                        "type": "string",
+                        "enum": ["deterministic", "probabilistic", "inferred"],
+                        "description": "Certainty level: deterministic, probabilistic, or inferred.",
+                    },
+                    "evidence": {
+                        "type": "string",
+                        "description": "Short explanation of why this edge exists (e.g. 'CatalogService.GetItems() called in BasketController').",  # noqa: E501
+                    },
+                },
+                "required": ["source_node_id", "target_node_id", "edge_type", "confidence", "evidence"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_nodes",
+            "description": (
+                "Return all nodes currently in the knowledge graph (summary + metadata, no embeddings). "
+                "Use this after ingesting multiple files to discover node IDs for cross-file edge inference."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum nodes to return (default 200).",
+                        "default": 200,
+                    }
+                },
+                "required": [],
             },
         },
     },
@@ -137,8 +192,11 @@ QUERY_TOOLS = [
         "function": {
             "name": "graph_traverse",
             "description": (
-                "Follow AST edges from a node outward to gather related context. "
-                "Returns nodes and edges up to the specified depth."
+                "Follow AST edges from a node to gather related context. "
+                "Returns nodes and edges up to the specified depth. "
+                "Use direction='inbound' for blast-radius / impact queries (who depends on this?). "
+                "Use direction='outbound' (default) for dependency queries (what does this depend on?). "
+                "Use direction='both' for full neighbourhood context."
             ),
             "parameters": {
                 "type": "object",
@@ -149,8 +207,23 @@ QUERY_TOOLS = [
                     },
                     "depth": {
                         "type": "integer",
-                        "description": "How many hops to traverse (default 2).",
+                        "description": (
+                            "How many hops to traverse. "
+                            "1 = immediate neighbours; 2 = two hops (default); 3 = blast radius. "
+                            "For narrow lookups use 1; architectural/cross-cutting use 2; impact analysis use 3."
+                        ),
                         "default": 2,
+                    },
+                    "direction": {
+                        "type": "string",
+                        "enum": ["outbound", "inbound", "both"],
+                        "description": (
+                            "Edge direction to follow. "
+                            "'outbound': what does this node call/depend on. "
+                            "'inbound': what depends on / calls this node (blast radius). "
+                            "'both': full neighbourhood."
+                        ),
+                        "default": "outbound",
                     },
                 },
                 "required": ["node_id"],

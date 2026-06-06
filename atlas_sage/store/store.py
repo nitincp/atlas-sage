@@ -95,6 +95,22 @@ class AtlasStore:
             .to_list()
         )
 
+    def get_incoming_edges(self, node_id: str) -> list[dict]:
+        """Return edges where this node is the target (who depends on / calls this node)."""
+        return (
+            self._table("edges")
+            .search()
+            .where(f"target_node_id = '{node_id}'")
+            .to_list()
+        )
+
+    def list_nodes(self, limit: int = 200) -> list[dict]:
+        """Return all nodes (summary + metadata only, no embeddings)."""
+        rows = self._table("nodes").search().limit(limit).to_list()
+        for row in rows:
+            row.pop("embedding", None)
+        return rows
+
     # ── Skills ────────────────────────────────────────────────────────────────
 
     def write_skill(self, skill: dict[str, Any]) -> str:
@@ -109,6 +125,8 @@ class AtlasStore:
             "chunk_types": json.dumps(skill.get("chunk_types", [])),
             "edge_types": json.dumps(skill.get("edge_types", [])),
             "limitations": json.dumps(skill.get("limitations", [])),
+            "application_role": skill.get("application_role", ""),
+            "summarisation_instructions": skill.get("summarisation_instructions", ""),
             "handbook": skill.get("handbook", ""),
             "created_at": _now(),
             "version": skill.get("version", 1),
