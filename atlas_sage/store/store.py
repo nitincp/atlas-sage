@@ -206,6 +206,19 @@ class AtlasStore:
         self._table("corrections").add([row])
         return correction["correction_id"]
 
+    def get_corrections(self, target_id: str) -> list[dict]:
+        """Return all corrections stored against a node, edge, community id, or logical name."""
+        return (
+            self._table("corrections")
+            .search()
+            .where(f"target_id = '{target_id}'")
+            .to_list()
+        )
+
+    def get_all_corrections(self) -> list[dict]:
+        """Return every correction in the store."""
+        return self._table("corrections").search().to_list()
+
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)

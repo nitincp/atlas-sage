@@ -12,10 +12,13 @@ from typing import Any
 from .executor import execute_skill
 from .skill_tools import create_skill, search_skills
 from .store_tools import (
+    capture_correction_tool,
     detect_communities_tool,
+    get_corrections_tool,
     graph_traverse,
     list_nodes_tool,
     search_communities_tool,
+    search_corrections_tool,
     store_community_tool,
     store_edge_tool,
     store_node,
@@ -87,6 +90,22 @@ def dispatch_tool(name: str, args: dict[str, Any], context: dict) -> Any:
                 config.embed_model,
                 store,
                 limit=args.get("limit", 3),
+            )
+
+        case "search_corrections":
+            return search_corrections_tool(args["query_text"], store)
+
+        case "get_corrections":
+            return get_corrections_tool(args["target_id"], store)
+
+        case "capture_correction":
+            return capture_correction_tool(
+                args["target_type"],
+                args["target_id"],
+                args["original"],
+                args["corrected"],
+                args.get("session_id", ""),
+                store,
             )
 
         case _:

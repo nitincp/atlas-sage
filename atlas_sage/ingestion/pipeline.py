@@ -49,12 +49,14 @@ def ingest(file_path: str, config: Config) -> tuple[str, dict]:
     with open(file_path, encoding="utf-8") as fh:
         sample = fh.read(3000)
 
+    corrections_block = _gather_corrections_for_files([file_path], store)
     user_message = (
         f"Ingest this file into the knowledge graph.\n\n"
         f"File: {file_path}\n"
         f"Language/type: {language_hint} (.{ext})\n"
         f"File type identifiers to use when searching/creating skills: ['{language_hint}', '.{ext}']\n\n"
         f"Sample (first 3000 chars, for skill creation only if needed):\n```\n{sample}\n```"
+        f"{corrections_block}"
     )
 
     text, stats = run_agent(
@@ -166,12 +168,14 @@ def ingest_directory(
     with open(files[0], encoding="utf-8") as fh:
         sample = fh.read(2000)
 
+    corrections_block = _gather_corrections_for_files(files, store)
     user_message = (
         f"Ingest the following {len(files)} {language_hint} file(s) into the knowledge graph.\n\n"
         f"Files to ingest:\n{file_list}\n\n"
         f"Language/type: {language_hint} (.{ext})\n"
         f"File type identifiers: ['{language_hint}', '.{ext}']\n\n"
         f"Sample from first file (for skill creation if needed):\n```\n{sample}\n```"
+        f"{corrections_block}"
     )
 
     text, stats = run_agent(
@@ -200,3 +204,38 @@ _EXT_LANGUAGE = {
     "yml": "yaml",
     "proto": "protobuf",
 }
+
+
+def _gather_corrections_for_files(files: list[str], store: AtlasStore) -> str:
+    """Return a formatted block of SME corrections for the given files.
+
+    Matches corrections by looking up existing nodes whose source_file matches one of
+    the ingest targets, then fetching any corrections stored against those node_ids.
+    Injected into the ingestion user message so the LLM reflects corrections in new summaries.
+    """
+    abs_files = {os.path.abspath(f) for f in files}
+    existing_nodes = store.list_nodes(limit=2000)
+
+    corrections_by_file: dict[str, list[dict]] = {}
+    for node in existing_nodes:
+        node_abs = os.path.abspath(node.get("source_file", ""))
+        if node_abs not in abs_files:
+            continue
+        corrections = store.get_corrections(node["node_id"])
+        if corrections:
+            key = node.get("source_file", "")
+            corrections_by_file.setdefault(key, []).extend(corrections)
+
+    if not corrections_by_file:
+        return ""
+
+    lines = [
+        "\n\nSME CORRECTIONS FROM PREVIOUS INGESTION RUNS — treat as authoritative knowledge.",
+        "When generating summaries for nodes in these files, incorporate the corrected understanding:",
+    ]
+    for source_file, corrections in sorted(corrections_by_file.items()):
+        lines.append(f"\n  File: {source_file}")
+        for c in corrections:
+            lines.append(f"    Original (system said): {c['original']}")
+            lines.append(f"    Corrected (SME said):   {c['corrected']}")
+    return "\n".join(lines)
