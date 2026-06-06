@@ -10,6 +10,7 @@
     "OLLAMA_HOST": "http://host.docker.internal:11434",
     "HF_HOME": "/workspaces/.cache/huggingface"
   },
+  "runArgs": ["--add-host=host.docker.internal:host-gateway"],
   "mounts": [
     "source=${localEnv:SSH_AUTH_SOCK},target=/ssh-agent,type=bind"
   ],
