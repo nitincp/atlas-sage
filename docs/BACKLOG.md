@@ -52,7 +52,7 @@ Sprint 4 is the most important validation. Operational SSR is proven (THESIS-SSR
 
 **Exit criteria:** SME asks a question about the ingested file. System returns a plausible, traceable answer via a skill it found or created. No MSBuildWorkspace hardcoded — tool choice is the skill's concern.
 
-**Status:** ✅ COMPLETE. Validated end-to-end with SCSS (`tests/test_scss.py`). PostCSS skill created on-the-fly by LLM; AST nodes with typed edges stored; query returned grounded structured answer. C# ingestion deferred to Sprint 1 (requires multi-file context anyway). Test rewritten to generic `SprintSpec` pattern during Sprint 1 infrastructure work.
+**Status:** ✅ COMPLETE. Validated end-to-end with SCSS (`test_harness/specs/sprint0_scss.py`). PostCSS skill created on-the-fly by LLM; AST nodes with typed edges stored; query returned grounded structured answer. C# ingestion deferred to Sprint 1 (requires multi-file context anyway). Test rewritten to generic `SprintSpec` pattern during Sprint 1 infrastructure work.
 
 ---
 
@@ -76,7 +76,7 @@ Sprint 4 is the most important validation. Operational SSR is proven (THESIS-SSR
 
 **Exit criteria:** SME asks a cross-file architectural question. System traverses graph and assembles multi-node context. Answer references multiple files correctly. Blast radius query identifies all dependent classes via inbound traversal.
 
-**Status:** ✅ COMPLETE. Validated with Python (`tests/test_sprint1.py`).  
+**Status:** ✅ COMPLETE. Validated with Python (`test_harness/specs/sprint1.py`).  
 Python AST skill created on-the-fly by LLM; nodes across 4 files; typed edges stored (IMPLEMENTS, INJECTS, CALLS, IMPORTS, USES).  
 Blast radius query correctly traced IOrderRepository → OrderService → OrderController via inbound depth=3.  
 Dependency query correctly traced OrderService outbound to IOrderRepository + model classes.  

@@ -28,5 +28,10 @@ yarn-error.log*
 .ruff_cache/
 
 # ── Test harness artifacts (prompts, suites, runs, index) ─────────────────────
-test_harness/
+# README and specs are source — tracked. Generated artifacts are not.
+test_harness/prompts/
+test_harness/test_suites/
+test_harness/runs/
+test_harness/run_log.json
+test_harness/index.md
 test_runs/

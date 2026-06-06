@@ -110,6 +110,7 @@ class SprintSpec:
     native_parser_keyword: str
     queries: list[QuerySpec]
     required_deterministic_edges: int = 1
+    required_execution_environment: str = ""  # if set, skill.execution_environment must match
 
 
 # ---------------------------------------------------------------------------
@@ -259,6 +260,21 @@ def _assert_native_parser(artifact: RunArtifact, spec: SprintSpec) -> None:
         "Skill is missing 'handbook'. "
         "The skill must document file type, runtime role, and domain signals."
     )
+    assert skill.get("summarisation_instructions"), (
+        "Skill is missing 'summarisation_instructions'. "
+        "The skill must provide per-chunk-type summarisation guidance."
+    )
+    assert skill.get("application_role"), (
+        "Skill is missing 'application_role'. "
+        "The skill must declare which query categories weight these nodes HIGH vs LOW."
+    )
+    if spec.required_execution_environment:
+        actual_env = skill.get("execution_environment", "")
+        assert actual_env == spec.required_execution_environment, (
+            f"Skill execution_environment is '{actual_env}', "
+            f"expected '{spec.required_execution_environment}'.\n"
+            f"  TypeScript skills must run in the Node.js environment (ts-morph requires Node)."
+        )
 
 
 def _assert_nodes(artifact: RunArtifact, spec: SprintSpec) -> None:

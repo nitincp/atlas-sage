@@ -39,6 +39,16 @@ Respond with a single JSON object — no markdown fences, no explanation:
   "handbook": "<TWO paragraphs — see Step 0 for required content>"
 }
 
+## OS environment (what the executor provides)
+
+Runtimes always available:
+  Python 3.x   — for execution_environment: "python", "python+dotnet", "python+node"
+  Node.js      — for execution_environment: "node"
+
+Any package may be used — declare it in install_cmd and the executor will install it
+automatically before the first execution. Do NOT assume any package beyond the language
+standard library is available without a corresponding install_cmd entry.
+
 ## Step 0 — Identify and document the native parser (do this FIRST, before any script)
 
 This step is NOT optional. Work through these four questions and put all answers in the
@@ -103,9 +113,9 @@ Reference table (confirm with Step 0 reasoning, do not use blindly):
   Must write result to stdout: process.stdout.write(JSON.stringify(result))
   Do NOT use module.exports — the script must be fully self-executing.
 
-  Pre-installed npm packages (available via require): postcss, postcss-scss, ts-morph
+  Packages: list all npm requirements in install_cmd — the executor installs them into the
+  project node_modules before running the script, so require() will resolve them.
   For UUID generation: use crypto.randomUUID() — built into Node.js, no require needed.
-  Do NOT require any package not in the pre-installed list above.
 
 ### Every node dict must contain:
   node_id (fresh uuid str), language, source_file (= file_path), chunk_type, raw_cleaned, edges (list)

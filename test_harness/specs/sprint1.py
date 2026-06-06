@@ -1,38 +1,9 @@
-"""Sprint 1 validation — multi-file Python ingestion, graph edges, traversal, blast radius.
+"""Sprint 1 — multi-file Python ingestion, graph edges, blast radius.
 
-Language: Python (built-in ast — no extra tooling, rich OOP: INHERITS, INJECTS, CALLS, IMPLEMENTS)
+Language: Python (built-in ast)
 Thesis claim: Structured Speculation anchored to graph produces useful output (Sprint 1)
-
-Edge types exercised:
-  IMPLEMENTS — deterministic (class OrderRepository(IOrderRepository))
-  INJECTS    — deterministic (constructor parameter typed as interface)
-  CALLS      — probabilistic (method invocations)
-  RETURNS    — deterministic (return type annotations)
-
-AS-10  Multi-file ingestion via ingest_directory
-AS-11  Edge extraction: IMPLEMENTS, INJECTS, CALLS, RETURNS
-AS-12  Edge confidence metadata stored and validated
-AS-13  graph_traverse wired at query time (exercised via blast-radius query)
-AS-14  Orchestrator classifies query intent → correct direction + depth
-AS-15  Blast radius: inbound traversal identifies all impacted classes
-
-Run:
-    pytest tests/test_sprint1.py -v -s
-
-Artifacts saved to: test_runs/sprint1/<timestamp>/
 """
-
-from __future__ import annotations
-
-import shutil
-
-import pytest
-
-from atlas_sage.testing.runner import QuerySpec, SprintSpec, run_sprint
-
-# ---------------------------------------------------------------------------
-# Sample Python mini-app — 4 files, layered architecture, all edge types
-# ---------------------------------------------------------------------------
+from atlas_sage.testing.runner import QuerySpec, SprintSpec
 
 SAMPLE_MODELS = """\
 from dataclasses import dataclass, field
@@ -187,11 +158,7 @@ class OrderController:
         return [{"order_id": o.order_id, "status": o.status, "total": o.total} for o in orders]
 """
 
-# ---------------------------------------------------------------------------
-# Sprint 1 specification — data only, no test logic
-# ---------------------------------------------------------------------------
-
-SPRINT1 = SprintSpec(
+SPEC = SprintSpec(
     name="sprint1",
     suite_name="python_order_processing",
     files={
@@ -221,46 +188,3 @@ SPRINT1 = SprintSpec(
         ),
     ],
 )
-
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture(scope="module")
-def config():
-    try:
-        from atlas_sage.config import Config
-        return Config()
-    except EnvironmentError as exc:
-        pytest.skip(str(exc))
-
-
-@pytest.fixture(scope="module")
-def temp_db(tmp_path_factory):
-    path = str(tmp_path_factory.mktemp("sprint1_db"))
-    yield path
-    shutil.rmtree(path, ignore_errors=True)
-
-
-@pytest.fixture(scope="module")
-def src_dir(tmp_path_factory):
-    d = tmp_path_factory.mktemp("sprint1_src")
-    for name, content in SPRINT1.files.items():
-        (d / name).write_text(content)
-    return str(d)
-
-
-# ---------------------------------------------------------------------------
-# Test — one function, all assertions delegated to assert_sprint()
-# ---------------------------------------------------------------------------
-
-
-def test_sprint1(config, temp_db, src_dir):
-    """AS-10 through AS-15: ingest, edges, native parser, graph traversal, blast radius."""
-    artifact = run_sprint(SPRINT1, config, temp_db, src_dir)
-    # assertions ran inside run_sprint; raises AssertionError on failure
-    print(f"\nNodes: {len(artifact.nodes)} | Edges: {len(artifact.edges)} | {artifact.duration_s:.0f}s")
-    print(f"Skill: {artifact.skill.get('name')} ({artifact.skill.get('tool_name')})")
-    print(f"Artifacts: {artifact.run_dir}")
