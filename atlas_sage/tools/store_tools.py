@@ -135,6 +135,14 @@ def detect_communities_tool(store: AtlasStore) -> list[dict]:
 
     Returns community groups with member_node_ids and truncated member_summaries
     so the orchestrator can generate domain summaries without extra round-trips.
+
+    Edge-density note (AS-60): Louvain groups weakly-connected nodes into many
+    single-node communities at low edge-to-node ratios. Sprint 3 (edges/nodes=0.45)
+    produced 7 communities; Sprint 4 fixture at 0.23 is expected to produce mostly
+    singleton groups. Single-node groups are filtered here — they are not useful for
+    domain-level summarisation. Use the community_system prompt constraint ("If there
+    is only one community, still summarise it") to handle the degenerate case where
+    all edges connect a small core and most nodes remain isolated.
     """
     import uuid
 
@@ -158,8 +166,14 @@ def detect_communities_tool(store: AtlasStore) -> list[dict]:
     else:
         raw_groups = louvain_communities(G, seed=42)
 
+    # Drop singleton groups — isolated nodes produce no meaningful domain summary.
+    # If ALL groups are singletons (fully disconnected graph), keep them all so the
+    # orchestrator still has something to summarise at the project level.
+    multi_node = [g for g in raw_groups if len(g) > 1]
+    filtered_groups = multi_node if multi_node else list(raw_groups)
+
     result = []
-    for group in raw_groups:
+    for group in filtered_groups:
         member_ids = list(group)
         community_id = str(uuid.uuid4())
         member_summaries = [

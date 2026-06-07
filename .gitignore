@@ -28,7 +28,9 @@ yarn-error.log*
 .ruff_cache/
 
 # ── Test harness artifacts ────────────────────────────────────────────────────
-# Source (tracked): specs, prompts, test_suites, run_log, test_runs history
+# Source (tracked): specs, prompts, test_suites, run_log
 # Generated (not tracked): per-run output directories, derived index
+# Retired (AS-58): test_runs/ merged into test_harness/run_log.json
 test_harness/runs/
 test_harness/index.md
+test_runs/

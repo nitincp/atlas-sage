@@ -4,7 +4,7 @@
 **Author:** TinTin  
 **Date:** June 2026  
 **Classification:** Original Research / AI Systems Design  
-**Status:** First Draft
+**Status:** Validated through Sprint 4 — Domain SSR and Operational SSR both experimentally confirmed
 
 ---
 
@@ -280,6 +280,53 @@ This codebase has upgrade debt before Dart Sass 3.0 ships. An SME session on thi
 
 ---
 
+### 4.6 Domain SSR Validation — Sprint 4
+
+Sections 4.1–4.5 validate **Operational SSR** (Loop 2): the system extending its own tool-handling capability through specialist LLM correction. Sprint 4 validates **Domain SSR** (Loop 1): human corrections accumulating as permanent graph knowledge.
+
+**Test fixture:** Four-file Python order-processing application (OrderController, OrderService, IOrderRepository, Order). 90 nodes, 21 edges. Same fixture as Sprints 1–3.
+
+**Protocol:**
+- Q1: Query with no prior corrections in the graph — establish the speculative baseline
+- SME correction injected: the system's inference about OrderService's transaction handling was wrong
+- Q2: Same query re-run — correction surfaces before graph traversal begins
+
+**Results:**
+
+| Step | Observable |
+|---|---|
+| Q1 | No corrections found. Answer based on graph structure and LLM inference. OrderService described as managing order operations. |
+| Correction | SME flagged: "OrderService uses Unit of Work pattern to execute repository operations atomically" — not visible from AST structure alone |
+| Q2 | First line of answer: *"SME Correction on Record: Unit of Work pattern…atomically."* Graph traversal then grounded the correction in structural evidence |
+
+**What this proves:**
+
+The speculative Q1 answer was not wrong about what the code does. It was wrong about how it does it — the tacit architectural intent behind the transaction boundary. That intent is not in the AST. It is not in any comment. It exists only in the SME's understanding of the system's design.
+
+Q1 provoked the correction. The correction was captured against a logical concept (`orderservice`) rather than a node UUID — stable across ingestion runs, independent of extraction non-determinism.
+
+Q2 led with SME knowledge, then used the graph to ground it. This is the SSR loop closing at the domain level:
+
+```
+Speculative Q1
+  → wrong in the right neighbourhood
+  → SME corrects (tacit knowledge surfaces)
+  → correction stored in graph
+
+        ↓
+
+Q2 (same query)
+  → correction retrieved first
+  → graph traversal follows
+  → answer starts from human knowledge, not LLM inference
+```
+
+**The loop is observable, not inferred.** The shift from Q1 to Q2 is visible in the answer text, not in an evaluation metric. The system does not claim to have learned. It demonstrates it.
+
+**Cost:** $0.52/run — the $0.11 increase over Sprint 3 ($0.41) is attributable to one additional `search_corrections` tool call per query. First quantified cost of the Domain SSR loop.
+
+---
+
 ## 5. Implications
 
 ### 5.1 For Regulated Enterprise AI
@@ -359,8 +406,10 @@ CACA (2025-2026)
 ATLAS-SAGE (2026)
   Purpose:    Polyglot codebase intelligence
   Insight:    SSR — structured speculation + reinforcement
-  Gap:        None identified at time of writing
-  Status:     Walking skeleton Sprint 0
+  Status:     Sprint 4 complete — Domain SSR loop closed
+              Operational SSR: Sprints 0–2 (skill self-extension)
+              Community SSR:   Sprint 3 (cross-domain query routing)
+              Domain SSR:      Sprint 4 (correction capture, Q1→Q2 shift observable)
 ```
 
 ## Appendix: SSR Conditions Reference

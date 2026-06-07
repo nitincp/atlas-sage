@@ -1,6 +1,108 @@
 [
   {
     "run_num": 1,
+    "timestamp": "2026-06-06 12:46:16",
+    "sprint": "sprint0_scss",
+    "file_type": "scss",
+    "skill_name": "SCSS stylesheet parser",
+    "tool_name": "PostCSS with postcss-scss",
+    "skill_id": "d6ca000e",
+    "nodes": 9,
+    "edges": 2,
+    "edge_types": "INCLUDES_MIXIN, USES_VARIABLE",
+    "duration_s": 113,
+    "passed": false,
+    "prompt_version": "v000",
+    "run_dir": "sprint0_scss/20260606_124616",
+    "source": "pre-harness"
+  },
+  {
+    "run_num": 2,
+    "timestamp": "2026-06-06 12:50:01",
+    "sprint": "sprint1",
+    "file_type": "py",
+    "skill_name": "Python AST Parser",
+    "tool_name": "ast (stdlib)",
+    "skill_id": "a0270e3c",
+    "nodes": 57,
+    "edges": 20,
+    "edge_types": "CALLS, IMPORTS, INHERITS, INJECTS",
+    "duration_s": 225,
+    "passed": true,
+    "prompt_version": "v000",
+    "run_dir": "sprint1/20260606_125001",
+    "source": "pre-harness"
+  },
+  {
+    "run_num": 3,
+    "timestamp": "2026-06-06 12:52:31",
+    "sprint": "sprint0_scss",
+    "file_type": "scss",
+    "skill_name": "SCSS Stylesheet Parser",
+    "tool_name": "PostCSS with PostCSS-SCSS",
+    "skill_id": "3b6e8dc3",
+    "nodes": 12,
+    "edges": 6,
+    "edge_types": "USES, USES_MIXIN",
+    "duration_s": 87,
+    "passed": true,
+    "prompt_version": "v000",
+    "run_dir": "sprint0_scss/20260606_125231",
+    "source": "pre-harness"
+  },
+  {
+    "run_num": 4,
+    "timestamp": "2026-06-06 12:56:57",
+    "sprint": "sprint1",
+    "file_type": "py",
+    "skill_name": "Python AST Parser",
+    "tool_name": "ast (stdlib)",
+    "skill_id": "47d3bf7e",
+    "nodes": 49,
+    "edges": 20,
+    "edge_types": "CALLS, IMPLEMENTS, IMPORTS, INJECTS",
+    "duration_s": 203,
+    "passed": true,
+    "prompt_version": "v000",
+    "run_dir": "sprint1/20260606_125657",
+    "source": "pre-harness"
+  },
+  {
+    "run_num": 5,
+    "timestamp": "2026-06-06 13:04:18",
+    "sprint": "sprint0_scss",
+    "file_type": "scss",
+    "skill_name": "SCSS Style Sheet Parser",
+    "tool_name": "PostCSS",
+    "skill_id": "55007e55",
+    "nodes": 11,
+    "edges": 7,
+    "edge_types": "CALLS, IMPORTS, USES",
+    "duration_s": 90,
+    "passed": true,
+    "prompt_version": "v001",
+    "run_dir": "sprint0_scss/20260606_130418",
+    "source": "pre-harness"
+  },
+  {
+    "run_num": 6,
+    "timestamp": "2026-06-06 13:09:24",
+    "sprint": "sprint1",
+    "file_type": "py",
+    "skill_name": "Python AST Parser",
+    "tool_name": "ast",
+    "skill_id": "cea1d6f1",
+    "nodes": 83,
+    "edges": 20,
+    "edge_types": "CALLS, IMPORTS, INHERITS, INJECTS",
+    "duration_s": 306,
+    "passed": true,
+    "prompt_version": "v001",
+    "run_dir": "sprint1/20260606_130924",
+    "source": "pre-harness"
+  },
+  {
+    "run_num": 7,
     "timestamp": "2026-06-06 13:21:45",
     "sprint": "sprint0_scss",
     "file_type": "scss",
@@ -14,10 +116,11 @@
     "passed": true,
     "prompt_version": "v001",
     "suite_version": "scss_product_card_v001",
-    "run_dir": "runs/20260606_132145"
+    "run_dir": "runs/20260606_132145",
+    "canonical": true
   },
   {
-    "run_num": 2,
+    "run_num": 8,
     "timestamp": "2026-06-06 13:26:04",
     "sprint": "sprint1",
     "file_type": "py",
@@ -31,10 +134,11 @@
     "passed": true,
     "prompt_version": "v001",
     "suite_version": "python_order_processing_v001",
-    "run_dir": "runs/20260606_132604"
+    "run_dir": "runs/20260606_132604",
+    "canonical": true
   },
   {
-    "run_num": 3,
+    "run_num": 9,
     "timestamp": "2026-06-06 13:27:54",
     "sprint": "sprint0_scss",
     "file_type": "scss",
@@ -51,7 +155,7 @@
     "run_dir": "runs/20260606_132754"
   },
   {
-    "run_num": 4,
+    "run_num": 10,
     "timestamp": "2026-06-06 13:31:42",
     "sprint": "sprint1",
     "file_type": "py",
@@ -68,7 +172,7 @@
     "run_dir": "runs/20260606_133142"
   },
   {
-    "run_num": 5,
+    "run_num": 11,
     "timestamp": "2026-06-06 13:44:31",
     "sprint": "sprint1",
     "file_type": "py",
@@ -90,7 +194,7 @@
     "out_tokens": 17868
   },
   {
-    "run_num": 6,
+    "run_num": 12,
     "timestamp": "2026-06-06 13:46:41",
     "sprint": "sprint0_scss",
     "file_type": "scss",
@@ -112,7 +216,7 @@
     "out_tokens": 9274
   },
   {
-    "run_num": 7,
+    "run_num": 13,
     "timestamp": "2026-06-06 14:46:06",
     "sprint": "sprint2",
     "file_type": "ts",
@@ -131,10 +235,11 @@
     "skill_model": "claude-haiku-4-5-20251001",
     "cost_usd": 0.433748,
     "in_tokens": 360878,
-    "out_tokens": 14574
+    "out_tokens": 14574,
+    "canonical": true
   },
   {
-    "run_num": 8,
+    "run_num": 14,
     "timestamp": "2026-06-06 15:13:03",
     "sprint": "sprint3",
     "file_type": "py",
@@ -154,10 +259,11 @@
     "skill_model": "claude-haiku-4-5-20251001",
     "cost_usd": 0.40998,
     "in_tokens": 287035,
-    "out_tokens": 24589
+    "out_tokens": 24589,
+    "canonical": true
   },
   {
-    "run_num": 9,
+    "run_num": 15,
     "timestamp": "2026-06-06 15:50:06",
     "sprint": "sprint4",
     "file_type": "py",
@@ -180,7 +286,7 @@
     "out_tokens": 28714
   },
   {
-    "run_num": 10,
+    "run_num": 16,
     "timestamp": "2026-06-06 16:00:07",
     "sprint": "sprint4",
     "file_type": "py",
@@ -203,7 +309,7 @@
     "out_tokens": 18731
   },
   {
-    "run_num": 11,
+    "run_num": 17,
     "timestamp": "2026-06-06 16:16:37",
     "sprint": "sprint4",
     "file_type": "py",
@@ -223,6 +329,7 @@
     "skill_model": "claude-haiku-4-5-20251001",
     "cost_usd": 0.522138,
     "in_tokens": 390843,
-    "out_tokens": 26259
+    "out_tokens": 26259,
+    "canonical": true
   }
 ]
