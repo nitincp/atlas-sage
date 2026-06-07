@@ -207,21 +207,27 @@ Cost: ~$0.52/run (claude-haiku-4-5-20251001), up from sprint3 ~$0.41 — extra `
 
 ## Retrospective Improvements — Sprint 0–4
 
-Surfaced during the Sprint 0–4 retrospective (`docs/RETRO-S0-S4.md`). These are the bridge items before Sprint 5 starts.
+Surfaced during the Sprint 0–4 retrospective (`docs/RETRO-S0-S4.md`). Bridge items before Sprint 5 starts. **All items complete.**
 
-| ID | Item | Priority |
-|---|---|---|
-| AS-53 | Update THESIS-SSR.md with Sprint 4 domain SSR validation evidence — unblocked, the primary artifact of the project does not yet reflect the correction-capture proof | High |
-| AS-57 | Fix test_harness gitignore — track `prompts/`, `test_suites/`, `run_log.json`; untrack `index.md` — prompt engineering history and benchmark ledger currently lost on env rebuild | High |
-| AS-58 | Merge test_runs/ into test_harness/ — absorb 6 pre-harness run entries, import true-first prompt version (`dfd77cd7`), retire orphan directory — closes historical gap in harness_query record | Medium |
-| AS-59 | Add `canonical: true` marker to run_log.json per sprint — marks the reference passing run; resolves multi-run ambiguity as volume grows | Medium |
-| AS-60 | Characterize community detection edge-density boundary — sprint 4 returned 0 communities at density 0.23 vs 7 in sprint 3 at 0.45; boundary uncharacterized; risk for sprint 5 if community routing used for gap classification | Medium |
+| ID | Item | Priority | Status |
+|---|---|---|---|
+| AS-53 | Update THESIS-SSR.md with Sprint 4 domain SSR validation evidence — primary artifact of the project now reflects the correction-capture proof | High | ✅ Done |
+| AS-57 | Fix test_harness gitignore — `prompts/`, `test_suites/`, `run_log.json` tracked; `index.md` untracked | High | ✅ Done (db3e885) |
+| AS-58 | Merge test_runs/ into test_harness/ — 6 pre-harness run entries absorbed; true-first prompt `dfd77cd7` imported as `v000`; orphan directory retired; harness_query now sees 17 runs (was 11) | Medium | ✅ Done |
+| AS-59 | Add `canonical: true` marker to run_log.json per sprint — reference passing run marked for runs 7, 8, 13, 14, 17 | Medium | ✅ Done |
+| AS-60 | Characterize community detection edge-density boundary — Sprint 3 edges/nodes=0.45 → 7 communities; Sprint 4 at 0.23 produced singletons (community detection skipped in spec). Fix: `detect_communities_tool` filters singleton groups; degenerate fallback preserved; boundary documented in code | Medium | ✅ Done |
 
 ---
 
 ## Backlog (Unscheduled)
 
 Items are grouped by the sprint that unlocks them. Nothing here is picked up unless explicitly pulled into a sprint during planning. Items with no sprint gate are deferred indefinitely.
+
+### Unlocked by retro (not Sprint 5 scope)
+
+| ID | Item |
+|---|---|
+| AS-61 | Add `--canonical` filter to `harness_query` CLI — `canonical: true` field added by AS-59; CLI has no way to query it yet; small addition, deferred until there are enough runs that filtering by canonical matters |
 
 ### Activates after Sprint 5
 
