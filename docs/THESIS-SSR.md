@@ -4,7 +4,7 @@
 **Author:** TinTin  
 **Date:** June 2026  
 **Classification:** Original Research / AI Systems Design  
-**Status:** Validated through Sprint 4 — Domain SSR and Operational SSR both experimentally confirmed
+**Status:** Validated through Sprint 4 — Domain SSR and Operational SSR both experimentally confirmed. Branch B (Semantic Synthesis) discovered and validated by initial test — 2026-06-08.
 
 ---
 
@@ -324,6 +324,89 @@ Q2 (same query)
 **The loop is observable, not inferred.** The shift from Q1 to Q2 is visible in the answer text, not in an evaluation metric. The system does not claim to have learned. It demonstrates it.
 
 **Cost:** $0.52/run — the $0.11 increase over Sprint 3 ($0.41) is attributable to one additional `search_corrections` tool call per query. First quantified cost of the Domain SSR loop.
+
+---
+
+### 4.7 Semantic Synthesis — Branch B Discovery (2026-06-08)
+
+#### The Finding
+
+During Sprint 5 planning, a test was run that had not been planned. Four files in three languages — `api.py` (Python/Flask), `products.ts` (TypeScript), `index.html`, and `product.scss` — were ingested independently using the existing skill pipeline, with each skill created in isolation and no cross-type awareness in any prompt. The 29 resulting node summaries were then read together by an LLM with a single instruction: synthesise what these summaries collectively describe.
+
+The output was a complete BDD specification — six independently readable scenarios, in plain English, requiring no technical knowledge to validate. One scenario described a behavioral thread that no single file contained:
+
+> *"When product data is successfully received, the loading state is removed from the card and the card becomes interactive again."*
+
+That sentence required `product-card--loading` from `product.scss`, the template structure from `index.html`, and the class removal logic from `products.ts` to exist simultaneously in the context. No edge declaration, no `target_ref`, no cross-type schema — the summaries carried the signal in their language, and reading them together made the chain visible.
+
+#### The Thesis Claim
+
+**Branch B: Plain-English node summaries, when read holistically, reconstruct cross-language behavioral chains without explicit cross-type edges.** The connections emerge from the language of the summaries. The graph is the index. The synthesis is the answer.
+
+This is distinct from Branch A, which holds that cross-language edges — explicitly stored, structurally derived — are the connective tissue of the graph. Both claims can hold simultaneously. Branch A provides the deterministic skeleton. Branch B provides the semantic synthesis that makes the skeleton readable as behavior.
+
+#### Evidence
+
+| Observable | What it demonstrates |
+|---|---|
+| Full request-to-render chain visible in 29 summaries across 4 files and 3 languages | Chain reconstruction does not require explicit edge declarations |
+| Loading state thread found across SCSS, HTML, and TypeScript summaries — none declaring it as a relationship | Implicit multi-file behavioral threads surface from language alone |
+| BDD specification produced: 6 scenarios, no technical jargon, no class names or file references | Summaries are sufficient substrate for SME-validatable output |
+| Skills created with no cross-type awareness: the synthesis emerged despite the skills not being designed for it | The signal is in the translation quality, not in the edge schema |
+
+#### The New SSR Loop — Branch B
+
+Branch A's SSR loop corrects at the node level: the SME flags a wrong summary, the correction is stored against that node, future queries reflect it.
+
+Branch B's SSR loop corrects at the translation level — deeper:
+
+```
+Code → Skill.extraction_script → raw_cleaned node
+     → Skill.summarisation_instructions → plain-English summary
+     → Synthesis pass → BDD scenario
+                               ↓
+                        SME validates
+                               ↓
+                   "This scenario is wrong"
+                               ↓
+               Trace: BDD scenario → summary → raw_cleaned
+               Identify: which part of the translation was wrong
+                               ↓
+               Update: Skill.summarisation_instructions
+                               ↓
+               Re-ingest: corrected translation → corrected BDD
+```
+
+The correction does not update a stored node. It updates the **skill's translation instructions** — the guidance the skill uses when summarising every node of that chunk type, in every codebase, forever. This is the deepest feedback point in the system.
+
+The traceability chain is essential: every BDD scenario must map back to the specific node summaries that contributed to it, and every node summary must map back to the raw code that produced it. Without this chain, the SME cannot route a correction — they can say the scenario is wrong but cannot identify which translation caused it.
+
+#### The Loading State Thread — Why It Matters
+
+The loading state finding is the clearest evidence for Branch B's claim. Three files — SCSS, HTML, TypeScript — each independently described the same behavioral mechanism in different terms:
+
+- SCSS: *"BEM modifier applied conditionally by JavaScript when data is fetching. Removed once data is bound."*
+- HTML: *"Initial loading class shows skeleton state before data arrives."*
+- TypeScript: *"Removes 'product-card--loading' class — UI state transition from skeleton to rendered state."*
+
+No single file contains this behavior. No explicit edge connects these three nodes. The synthesis LLM read all three and produced: *"When the page loads, each product card displays in a loading/skeleton state with reduced opacity and no interactivity until data arrives."* That is the behavioral truth. It only exists when the three summaries are assembled.
+
+This is a category of knowledge that graph traversal cannot recover. There is no edge to traverse. The knowledge lives in the co-occurrence of language across the summaries.
+
+#### Relationship to Branch A
+
+Branch A and Branch B are not alternatives. They operate at different levels:
+
+| | Branch A | Branch B |
+|---|---|---|
+| Knowledge location | Graph edges | Summary language |
+| Connection mechanism | Traversal | Holistic synthesis |
+| Confidence tier | Deterministic → inferred | Inferred (synthesis is always LLM reasoning) |
+| SME correction target | Node summary / edge | Skill.summarisation_instructions |
+| Correction propagation | Single node updated | All future ingests of that file type improved |
+| Query mechanism | graph_traverse | list_nodes → synthesis pass |
+
+The full system uses both. Branch A answers structural questions precisely. Branch B answers behavioral questions holistically. The BDD output is the Branch B artifact. The graph traversal answer is the Branch A artifact.
 
 ---
 

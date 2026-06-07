@@ -17,10 +17,13 @@
 | Sprint 2 | Skill system self-extends without code change |
 | Sprint 3 | Community summaries answer cross-domain queries |
 | Sprint 4 | **Domain SSR** — human corrections accumulate as graph knowledge |
-| Sprint 5 | Loop 2 operational — Gap Reports drive skill evolution |
-| Sprint 6 | SSR works across language boundaries |
+| Sprint 5 (Branch B) | **Semantic Synthesis** — plain-English summaries read holistically produce SME-validatable BDD without explicit cross-type edges |
+| Sprint 6 (Branch B) | Traceability index — every BDD sentence traces back to the raw code that produced it |
+| Sprint 7 (Branch B) | SME→skill feedback loop — BDD correction updates `skill.summarisation_instructions`; re-ingest produces measurably better BDD |
+| Sprint 8 (Branch B) | Stress tests — synthesis holds under name collision, missing links, noise files, multi-chain scenarios |
+| Sprint 9 (Branch B) | eShopOnWeb — full polyglot codebase validates Branch B at scale |
 
-Sprint 4 is the most important validation. Operational SSR is proven (THESIS-SSR.md section 4). Domain SSR — real SME, real corrections, real tacit knowledge extracted — is the remaining thesis claim.
+Sprint 4 closed the Domain SSR claim for Branch A. The next claim — Branch B Semantic Synthesis — emerged experimentally during Sprint 5 planning: 4 files in 3 languages produced a complete BDD specification from plain-English summaries alone, with no cross-type edges. See `docs/THESIS-SSR.md` § 4.7 for the full evidence and the new SSR loop.
 
 ---
 
@@ -172,38 +175,90 @@ Cost: ~$0.52/run (claude-haiku-4-5-20251001), up from sprint3 ~$0.41 — extra `
 
 ---
 
-## Sprint 5 — Gap Reports (Loop 2)
+## Sprint 5 (Branch B) — BDD Synthesis Pipeline
 
-**Goal:** Ingestion run emits structured gap report. Custom instructions generated for next run.
+**Goal:** Given any set of ingested files, the pipeline produces a BDD specification that a non-technical SME can read and validate. This is the first Branch B deliverable — formalising the finding from the experimental test into a callable pipeline function.
 
-| ID | Task |
-|---|---|
-| AS-34 | Gap report emitted at end of every ingestion run |
-| AS-35 | Unparseable files logged with file type and recommended skill |
-| AS-36 | Unresolved edges logged with confidence breakdown |
-| AS-37 | Gap report → custom instructions generation for next run |
-| AS-38 | Verify: second run on same repo is measurably more complete than first |
-| AS-55 | Skill creation loop exit criteria — gap report triggers skill creation; formalize the SSR loop (compare output against gap spec, send delta back to skill model, max 5 iterations). Currently the orchestrator inline-recovers (Sprint 2 evidence: 3 attempts); this makes exit criteria explicit within the Loop 2 flow. |
+**Context:** The experimental test (2026-06-08) ingested 4 files (Python, TypeScript, HTML, SCSS) using `ingest()` unchanged from Sprint 4, then passed all 29 resulting node summaries to the LLM with a synthesis prompt. The output was 6 BDD scenarios in plain English. Sprint 5 wraps this into a first-class pipeline function with a test harness spec.
 
-**Exit criteria:** Run 1 identifies SCSS files as a gap. Gap report recommends PostCSS skill. Run 2 processes SCSS files correctly via auto-created skill.
+| ID | Task | Status |
+|---|---|---|
+| AS-68 | THESIS-SSR.md Branch B documentation — discovery, evidence, SSR loop diagram, traceability chain, relationship to Branch A | ✅ Done |
+| AS-69 | `synthesise_bdd(config) → (bdd_text, stats)` pipeline function — reads all nodes from store via `list_nodes`, passes summaries + a product-owner synthesis prompt to Tier-2 LLM, returns Given/When/Then markdown | ⬜ Pending |
+| AS-70 | BDD synthesis prompt — instructs LLM to: group behaviours by actor/trigger, write each scenario in Given/When/Then, use plain English (no class names or file paths), output markdown | ⬜ Pending |
+| AS-71 | Sprint 5 harness spec — ingest `test_harness/fixtures/product_chain/` (4 files, 3 languages), call `synthesise_bdd()`, assert: ≥4 scenarios, loading state scenario present, no technical jargon in scenario text | ⬜ Pending |
+
+**Fixture:** `test_harness/fixtures/product_chain/` — created during experimental test. `api.py` (Flask), `products.ts`, `index.html`, `product.scss`. The loading state thread across all three frontend files is the key signal.
+
+**Exit criteria:** `synthesise_bdd()` called after ingesting the product_chain fixture produces ≥4 BDD scenarios in plain English. The loading state behavioral thread (SCSS + HTML + TypeScript independently describing it) appears as a unified scenario. A non-technical SME reading the output can validate or correct each scenario without referring to source code.
+
+---
+
+## Sprint 6 (Branch B) — Traceability Index
+
+**Goal:** Every BDD scenario sentence maps back to the node summaries that contributed to it, and every node summary maps back to its `raw_cleaned` source code. The traceability chain is what makes SME corrections actionable.
+
+**Context:** Without traceability, an SME can say "this scenario is wrong" but cannot tell the system which translation caused it. The chain `BDD scenario → summary → raw_cleaned → skill.summarisation_instructions` is the feedback path. Sprint 6 makes this chain explicit and queryable.
+
+| ID | Task | Status |
+|---|---|---|
+| AS-72 | `synthesise_bdd()` extended to return `bdd_with_trace` — each scenario annotated with the node_ids whose summaries contributed to it (LLM identifies contributing nodes as part of synthesis) | ⬜ Pending |
+| AS-73 | `get_bdd_trace(scenario_text, store)` — given a BDD scenario, returns: contributing node summaries, their `raw_cleaned` source, and the `skill_id` whose `summarisation_instructions` produced them | ⬜ Pending |
+| AS-74 | Sprint 6 harness spec — after BDD synthesis, assert: each scenario has ≥1 contributing node; the loading state scenario traces back to nodes from all 3 frontend files; `raw_cleaned` is non-empty for all traced nodes | ⬜ Pending |
+
+**Exit criteria:** For every BDD scenario produced, the system can name which node summaries contributed to it and which source lines they came from. An SME correcting a scenario can follow the trace to the exact `summarisation_instructions` that needs updating.
 
 ---
 
-## Sprint 6 — Cross-Language Edges
+## Sprint 7 (Branch B) — SME→Skill Feedback Loop
 
-**Goal:** TS frontend and C# backend connected via HTTP_CALLS edges.
+**Goal:** SME validates a BDD scenario, marks it wrong, the system traces the correction back to the responsible `skill.summarisation_instructions`, updates them, and re-ingests the affected files. The next BDD output reflects the correction.
 
-| ID | Task |
-|---|---|
-| AS-39 | Static URL string matching: TS fetch literal → extracted C# route |
-| AS-40 | Synthetic contract node generation from route attributes (no OpenAPI) |
-| AS-41 | Cross-language edge storage with confidence tier |
-| AS-42 | Inferred edge — Tier-2 reasons over candidates, stores with evidence |
-| AS-43 | Full-stack query: "what happens when this button is clicked" — traverses TS → C# → DB |
+**Context:** This is the deepest feedback level in Branch B's SSR loop. Updating `summarisation_instructions` improves how every node of that chunk type is translated — in this codebase and all future ones. The correction propagates forward without touching individual nodes.
 
-**Exit criteria:** SME asks a full-stack question spanning frontend and backend. System traces path across language boundary and assembles coherent answer.
+| ID | Task | Status |
+|---|---|---|
+| AS-75 | `update_skill_summarisation(skill_id, chunk_type, instruction_delta, store)` — appends or replaces a correction clause in `skill.summarisation_instructions` for the given chunk type | ⬜ Pending |
+| AS-76 | Skill re-run after summarisation update — re-execute skill extraction + summarisation on affected file(s), overwrite existing nodes with improved summaries, re-embed | ⬜ Pending |
+| AS-77 | Sprint 7 harness spec — deliberately introduce a bad `summarisation_instructions` clause in the SCSS skill; run synthesis; SME "correction" provided as test input; update instructions; re-ingest; assert BDD output changed and is more accurate | ⬜ Pending |
+
+**Exit criteria:** A known-bad summarisation instruction produces a wrong BDD scenario. The correction updates `skill.summarisation_instructions`. Re-ingesting the file produces a node summary that triggers a correct BDD scenario on the next synthesis pass. The original wrong scenario is gone.
 
 ---
+
+## Sprint 8 (Branch B) — Stress Tests
+
+**Goal:** Confirm that semantic synthesis holds — and degrades gracefully — under conditions harder than the clean product_chain fixture.
+
+**Levels are cumulative: each adds one complication to the previous fixture.**
+
+| ID | Level | Scenario | What it tests |
+|---|---|---|---|
+| AS-78 | Level 2 | Name collision — two unrelated CSS components share a class name (e.g. `.card` used in both product list and user profile) | Synthesis must produce two separate behavioral threads, not merge them. |
+| AS-79 | Level 3 | Missing link — SCSS and HTML present; TypeScript file absent (no fetch logic) | Gap surfaces as an incomplete scenario: behaviour stops at "data is displayed" with no "data is fetched" origin. |
+| AS-80 | Level 4 | Noise files — add `config.yaml`, `README.md`, `package.json` to the fixture directory | Summaries of non-behavioral files must not pollute BDD output; scenarios must still be behaviorally coherent. |
+| AS-81 | Level 5 | Multi-chain — add a second independent behavioral thread (e.g. a shopping cart alongside the product list) | Two separate BDD scenario groups produced; loading state thread for products does not bleed into cart scenarios. |
+
+**Exit criteria per level:** BDD output changes in the expected direction. The complication does not collapse the output — it shapes it correctly.
+
+---
+
+## Sprint 9 (Branch B) — eShopOnWeb Validation
+
+**Goal:** Run the full Branch B pipeline on `eshoponweb/` — a real, multi-language reference application. BDD output reviewed by a technical SME (Nitin) as a proxy for non-technical SME validation.
+
+**Context:** eShopOnWeb is the existing git submodule at `eshoponweb/`. It contains C#, TypeScript, SCSS, HTML, and YAML. Skills for all file types will be created on-the-fly. The test validates that Branch B holds at real-world scale and polyglot diversity.
+
+| ID | Task | Status |
+|---|---|---|
+| AS-82 | Run `ingest_directory("eshoponweb/", config)` with skill creation for all encountered file types | ⬜ Pending |
+| AS-83 | Run `synthesise_bdd()` over all ingested nodes — expect 10–20+ BDD scenarios across multiple domain threads | ⬜ Pending |
+| AS-84 | Review BDD output for: recognisable eShopOnWeb behaviours (product catalog, cart, checkout, auth), no jargon leakage, no merged chains from unrelated domains | ⬜ Pending |
+| AS-85 | Introduce one known correction (e.g. checkout flow misrepresented), update `summarisation_instructions`, re-ingest affected files, verify BDD output corrects | ⬜ Pending |
+| AS-86 | Sprint 9 harness spec — automated assertions on scenario count, domain coverage, jargon-free text; SME review recorded as a correction in the corrections table | ⬜ Pending |
+
+**Exit criteria:** eShopOnWeb BDD output contains recognisable behavioural scenarios for the main shopping flows. At least one SME correction demonstrably improves the output via the `summarisation_instructions` feedback path. The system has not required any code changes since Sprint 4.
+
 
 ## Retrospective Improvements — Sprint 0–4
 
@@ -221,44 +276,47 @@ Surfaced during the Sprint 0–4 retrospective (`docs/RETRO-S0-S4.md`). Bridge i
 
 ## Backlog (Unscheduled)
 
-Items are grouped by the sprint that unlocks them. Nothing here is picked up unless explicitly pulled into a sprint during planning. Items with no sprint gate are deferred indefinitely.
+Items are grouped by the sprint that unlocks them. Nothing here is picked up unless explicitly pulled into a sprint during planning.
 
-### Unlocked by retro (not Sprint 5 scope)
+### Unlocked by retro (not sprint-gated)
 
 | ID | Item |
 |---|---|
 | AS-61 | Add `--canonical` filter to `harness_query` CLI — `canonical: true` field added by AS-59; CLI has no way to query it yet; small addition, deferred until there are enough runs that filtering by canonical matters |
 
-### Activates after Sprint 5
+### Activates after Sprint 7 (feedback loop stable)
 
 | ID | Item |
 |---|---|
-| AS-52 | Gap report dashboard UI — UX layer over the Sprint 5 structured gap report output; not useful until the gap report schema is stable |
-| AS-46 | Git-push hook for incremental re-ingestion — triggers re-ingest on push; depends on Sprint 5 gap reports being stable enough to consume programmatically |
-
-### Activates after Sprint 6
-
-| ID | Item |
-|---|---|
-| AS-47 | Prompt cache optimisation (static prefix ordering) — per-sprint cost is $0.52 on the 4-file fixture; eShopOnWeb (~400+ files) will multiply input tokens significantly; static prefix caching is the primary cost lever for full-repo ingestion |
+| AS-47 | Prompt cache optimisation (static prefix ordering) — per-sprint cost is $0.52 on the 4-file fixture; eShopOnWeb will multiply input tokens significantly; static prefix caching is the primary cost lever |
 | AS-56 | Provider fallback for rate limits — `num_retries=3` handles Gemini 429s (Sprint 3 evidence); LiteLLM Router `fallbacks` per model tier is the production hardening step when retrying the same provider burns quota at scale |
-| AS-54 | Telemetry / distributed trace integration — LiteLLM callbacks + Langfuse for per-call span visibility; complement to run_log aggregate stats; relevant when production usage on real repos begins |
-| AS-50 | OpenAPI spec ingestion — Sprint 6 deliberately proves cross-language edges *without* OpenAPI (inference only); this is the fast path to add once the inference baseline is established |
-| AS-51 | SME session history as community correction source — corrections update individual nodes; community summaries do not yet reflect accumulated SME knowledge; Loop 1→community propagation; natural thesis extension once Sprint 6 closes the cross-language loop |
+| AS-54 | Telemetry / distributed trace integration — LiteLLM callbacks + Langfuse for per-call span visibility; complement to run_log aggregate stats; relevant when real-repo usage begins |
+| AS-51 | BDD-to-community propagation — accumulated SME corrections on BDD scenarios should backfill community summaries; natural extension once the SME→skill feedback loop is stable |
+
+### Activates after Sprint 9 (eShopOnWeb validated)
+
+| ID | Item |
+|---|---|
+| AS-46 | Git-push hook for incremental re-ingestion — triggers re-ingest on push; depends on BDD synthesis pipeline being stable enough to consume programmatically |
+| AS-50 | OpenAPI spec ingestion — Branch B proves cross-language chains without OpenAPI; this is the fast path to add once the synthesis baseline is established |
 
 ### Deferred — no sprint gate
 
 | ID | Item | Note |
 |---|---|---|
-| AS-48 | Multi-repo support | Architectural change — graph spanning multiple repositories requires a different store partitioning model. No sprint slot; revisit when eShopOnWeb single-repo is stable. |
+| AS-48 | Multi-repo support | Architectural change — graph spanning multiple repositories requires a different store partitioning model. Revisit when eShopOnWeb single-repo is stable. |
 
 ### Retired
 
 | ID | Item | Reason |
 |---|---|---|
 | AS-49 | gRPC / protobuf tool skill | Sprint 2 validated that the skill system creates language-specific tools on-the-fly without code change. Explicitly scheduling a gRPC skill is contrary to that thesis claim. If a target repo contains `.proto` files the orchestrator will create the skill. No sprint work required. |
+| AS-34 | Gap report emitted at end of every ingestion run | Branch B makes explicit gap tracking unnecessary — the synthesis pass surfaces missing behavioral threads as incomplete scenarios. Structural gaps are now semantic gaps, which are more useful. |
+| AS-35 | Skill failure gap report | Retained implicitly: a file type with no skill still fails to ingest and won't appear in synthesis. Explicit gap report format deferred. |
+| AS-36 | Unresolved binding gap | Branch B does not require `target_ref` binding edges. The `__ref__` sentinel approach is deferred with the cross-type binding work it depended on. |
+| AS-52 | Gap report dashboard UI | Retired with AS-34 — no gap report schema to build a UI over. |
+| AS-64 | `target_ref` resolution at query time | Retired — Branch B does not use `target_ref` sentinels. |
 
----
 
 ## Non-Negotiables
 
@@ -271,13 +329,14 @@ Items are grouped by the sprint that unlocks them. Nothing here is picked up unl
 
 ---
 
-## Current Confidence (updated post Sprint 4 — see RETRO-S0-S4.md)
+## Current Confidence (updated 2026-06-08 — Branch B discovery)
 
 | Dimension | Score | Movement | Rationale |
 |---|---|---|---|
-| Implementation | 9/10 | ↑ +1 | All 5 thesis sprints delivered; correction loop stable; eShopOnWeb full-repo scale still untested |
-| Usability | 8/10 | ↓ -1 | Blast radius, domain summary, correction-aware queries proven on synthetic fixture; node count non-determinism (39–92 for same input in sprint 4) is a usability risk at scale; real SME on real codebase unvalidated |
-| Thesis | 9/10 | ↑ +2 | Operational SSR (sprints 0–2) + community-level queries (sprint 3) + domain SSR correction loop (sprint 4) experimentally validated; Gap Reports (Loop 2) is the remaining unproven claim |
-| Observability | 7/10 | ↑ +1 | Per-sprint cost/token/model tracked; prompt versioning audit trail live; per-call span visibility (AS-54) still deferred |
+| Implementation | 9/10 | → | Branch A (Sprints 0–4) fully delivered. Branch B pipeline (synthesise_bdd, traceability, SME→skill loop) not yet implemented — experimental test used ad-hoc LLM call, not a production function. Score holds pending Sprint 5–7. |
+| Usability | 9/10 | ↑ +1 | BDD output is a direct SME validation surface — no graph traversal knowledge required. Non-technical stakeholder can read and correct a scenario directly. This changes the usability ceiling. |
+| Thesis | 10/10 | ↑ +1 | Branch B finding: plain-English summaries reconstruct cross-language behavioral chains without explicit edges. Experimentally confirmed on 29-node, 4-file, 3-language fixture. Loading state thread found across SCSS + HTML + TypeScript with no declared relationship. SSR loop closes at `skill.summarisation_instructions` — the deepest feedback level possible. |
+| Observability | 7/10 | → | Run log, cost tracking, prompt versioning all live. Traceability index (BDD sentence → node → raw code) is the next observability layer — Sprint 6. |
 
-The system that knows what it does not know is more trustworthy than one that silently covers gaps. Gap Reports and loop exit criteria are evidence of self-awareness — which changes the risk profile more than the scores capture.
+Branch B shifts the confidence ceiling. The original thesis was "LLM-anchored graph queries answer architectural questions." Branch B adds: "the translation layer is the primary knowledge artifact, and correcting it corrects everything downstream." This is a stronger claim with stronger evidence.
+

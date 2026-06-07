@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Product Catalogue</title>
+  <link rel="stylesheet" href="product.scss">
+</head>
+<body>
+  <h1>Products</h1>
+
+  <div id="product-list">
+    <!-- populated by products.ts -->
+  </div>
+
+  <template id="product-card-template">
+    <div class="product-card product-card--loading">
+      <h2 class="product-card__title"></h2>
+      <span class="product-card__price"></span>
+    </div>
+  </template>
+
+  <script src="products.js"></script>
+</body>
+</html>
