@@ -27,11 +27,8 @@ yarn-error.log*
 .pytest_cache/
 .ruff_cache/
 
-# ── Test harness artifacts (prompts, suites, runs, index) ─────────────────────
-# README and specs are source — tracked. Generated artifacts are not.
-test_harness/prompts/
-test_harness/test_suites/
+# ── Test harness artifacts ────────────────────────────────────────────────────
+# Source (tracked): specs, prompts, test_suites, run_log, test_runs history
+# Generated (not tracked): per-run output directories, derived index
 test_harness/runs/
-test_harness/run_log.json
 test_harness/index.md
-test_runs/

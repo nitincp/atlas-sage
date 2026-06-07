@@ -1,0 +1,11 @@
+{
+  "name": "scss_product_card",
+  "version": "scss_product_card_v001",
+  "hash": "96b44d08",
+  "timestamp": "2026-06-06 13:18:58",
+  "pattern": "**/*.scss",
+  "files": [
+    "product.scss"
+  ],
+  "description": "1 scss file(s): product.scss"
+}

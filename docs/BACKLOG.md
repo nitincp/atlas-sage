@@ -96,6 +96,8 @@ Cost/token tracking live: ~$0.36 per Python sprint run, ~$0.15 per SCSS run (cla
 | Harness query CLI | `python -m atlas_sage.testing.harness_query` — filter/aggregate `run_log.json` without file traversal | ✅ Done |
 | Native parser validation | Step 0 in `_CREATE_SKILL_SYSTEM` forces native parser declaration; `assert_sprint()` validates via `native_parser_keyword` | ✅ Done |
 | IST timestamps | `TZ=Asia/Kolkata` in devcontainer; `datetime.now().astimezone()` throughout | ✅ Done |
+| LiteLLM gateway (AS-44) | Model-agnostic routing; all `run_agent()` calls go through LiteLLM — provider-swap requires only env var change | ✅ Done |
+| Local model support (AS-45) | `ollama/` prefix via `ATLAS_OLLAMA_BASE`; vLLM-compatible; skill and orchestrator models independently configurable | ✅ Done |
 
 ---
 
@@ -181,6 +183,7 @@ Cost: ~$0.52/run (claude-haiku-4-5-20251001), up from sprint3 ~$0.41 — extra `
 | AS-36 | Unresolved edges logged with confidence breakdown |
 | AS-37 | Gap report → custom instructions generation for next run |
 | AS-38 | Verify: second run on same repo is measurably more complete than first |
+| AS-55 | Skill creation loop exit criteria — gap report triggers skill creation; formalize the SSR loop (compare output against gap spec, send delta back to skill model, max 5 iterations). Currently the orchestrator inline-recovers (Sprint 2 evidence: 3 attempts); this makes exit criteria explicit within the Loop 2 flow. |
 
 **Exit criteria:** Run 1 identifies SCSS files as a gap. Gap report recommends PostCSS skill. Run 2 processes SCSS files correctly via auto-created skill.
 
@@ -202,23 +205,52 @@ Cost: ~$0.52/run (claude-haiku-4-5-20251001), up from sprint3 ~$0.41 — extra `
 
 ---
 
+## Retrospective Improvements — Sprint 0–4
+
+Surfaced during the Sprint 0–4 retrospective (`docs/RETRO-S0-S4.md`). These are the bridge items before Sprint 5 starts.
+
+| ID | Item | Priority |
+|---|---|---|
+| AS-53 | Update THESIS-SSR.md with Sprint 4 domain SSR validation evidence — unblocked, the primary artifact of the project does not yet reflect the correction-capture proof | High |
+| AS-57 | Fix test_harness gitignore — track `prompts/`, `test_suites/`, `run_log.json`; untrack `index.md` — prompt engineering history and benchmark ledger currently lost on env rebuild | High |
+| AS-58 | Merge test_runs/ into test_harness/ — absorb 6 pre-harness run entries, import true-first prompt version (`dfd77cd7`), retire orphan directory — closes historical gap in harness_query record | Medium |
+| AS-59 | Add `canonical: true` marker to run_log.json per sprint — marks the reference passing run; resolves multi-run ambiguity as volume grows | Medium |
+| AS-60 | Characterize community detection edge-density boundary — sprint 4 returned 0 communities at density 0.23 vs 7 in sprint 3 at 0.45; boundary uncharacterized; risk for sprint 5 if community routing used for gap classification | Medium |
+
+---
+
 ## Backlog (Unscheduled)
 
-| ID | Item | Status |
+Items are grouped by the sprint that unlocks them. Nothing here is picked up unless explicitly pulled into a sprint during planning. Items with no sprint gate are deferred indefinitely.
+
+### Activates after Sprint 5
+
+| ID | Item |
+|---|---|
+| AS-52 | Gap report dashboard UI — UX layer over the Sprint 5 structured gap report output; not useful until the gap report schema is stable |
+| AS-46 | Git-push hook for incremental re-ingestion — triggers re-ingest on push; depends on Sprint 5 gap reports being stable enough to consume programmatically |
+
+### Activates after Sprint 6
+
+| ID | Item |
+|---|---|
+| AS-47 | Prompt cache optimisation (static prefix ordering) — per-sprint cost is $0.52 on the 4-file fixture; eShopOnWeb (~400+ files) will multiply input tokens significantly; static prefix caching is the primary cost lever for full-repo ingestion |
+| AS-56 | Provider fallback for rate limits — `num_retries=3` handles Gemini 429s (Sprint 3 evidence); LiteLLM Router `fallbacks` per model tier is the production hardening step when retrying the same provider burns quota at scale |
+| AS-54 | Telemetry / distributed trace integration — LiteLLM callbacks + Langfuse for per-call span visibility; complement to run_log aggregate stats; relevant when production usage on real repos begins |
+| AS-50 | OpenAPI spec ingestion — Sprint 6 deliberately proves cross-language edges *without* OpenAPI (inference only); this is the fast path to add once the inference baseline is established |
+| AS-51 | SME session history as community correction source — corrections update individual nodes; community summaries do not yet reflect accumulated SME knowledge; Loop 1→community propagation; natural thesis extension once Sprint 6 closes the cross-language loop |
+
+### Deferred — no sprint gate
+
+| ID | Item | Note |
 |---|---|---|
-| AS-44 | LiteLLM gateway — model-agnostic routing, local model support | ✅ Done |
-| AS-45 | vLLM / Ollama local deployment option | ✅ Done (`ollama/` prefix via `ATLAS_OLLAMA_BASE`) |
-| AS-46 | Git-push hook for incremental re-ingestion | — |
-| AS-47 | Prompt cache optimisation (static prefix ordering) | — |
-| AS-48 | Multi-repo support | — |
-| AS-49 | gRPC / protobuf tool skill | — |
-| AS-50 | OpenAPI spec ingestion when available | — |
-| AS-51 | SME session history as community correction source | — |
-| AS-52 | Gap report dashboard UI | — |
-| AS-53 | Thesis evolution — update THESIS-SSR.md after Sprint 4 domain SSR validation | — |
-| AS-56 | Provider fallback for rate limits — LiteLLM Router with `fallbacks` per model tier; `ATLAS_EMBED_MODEL_FALLBACK` for embedding 429s; currently `num_retries=3` retries same provider which works but burns quota faster | — |
-| AS-54 | Telemetry / distributed trace integration — LiteLLM callbacks + Langfuse for per-call span visibility (timing, token breakdown by tool call, skill cache hit rate). Complement to run_log stats, not a replacement. Defer to Sprint 3+ when prompts are stable and production usage begins. | — |
-| AS-55 | Skill validation loop — post-execute skill, compare output against spec, send delta back to skill model (max 5 loops). Currently the orchestrator inline-recovers; this formalises the loop with exit criteria. | — |
+| AS-48 | Multi-repo support | Architectural change — graph spanning multiple repositories requires a different store partitioning model. No sprint slot; revisit when eShopOnWeb single-repo is stable. |
+
+### Retired
+
+| ID | Item | Reason |
+|---|---|---|
+| AS-49 | gRPC / protobuf tool skill | Sprint 2 validated that the skill system creates language-specific tools on-the-fly without code change. Explicitly scheduling a gRPC skill is contrary to that thesis claim. If a target repo contains `.proto` files the orchestrator will create the skill. No sprint work required. |
 
 ---
 
@@ -233,13 +265,13 @@ Cost: ~$0.52/run (claude-haiku-4-5-20251001), up from sprint3 ~$0.41 — extra `
 
 ---
 
-## Current Confidence (updated post Sprint 1 + test harness)
+## Current Confidence (updated post Sprint 4 — see RETRO-S0-S4.md)
 
-| Dimension | Score | Rationale |
-|---|---|---|
-| Implementation | 8/10 | Multi-file graph edges proven. Cost/token tracking live. Test harness versioning operational. Scale (eShopOnWeb full repo) untested. |
-| Usability | 9/10 | Blast radius and dependency queries answered correctly. Domain SSR with real SME unvalidated. |
-| Thesis | 7/10 | Operational SSR fully validated across two languages. Domain SSR (Sprint 4) is the remaining thesis risk. |
-| Observability | 6/10 | Aggregate cost/token/model tracked per run. Per-call span visibility (telemetry) deferred to AS-54. Node/edge counts non-deterministic across runs — expected until prompts stabilise. |
+| Dimension | Score | Movement | Rationale |
+|---|---|---|---|
+| Implementation | 9/10 | ↑ +1 | All 5 thesis sprints delivered; correction loop stable; eShopOnWeb full-repo scale still untested |
+| Usability | 8/10 | ↓ -1 | Blast radius, domain summary, correction-aware queries proven on synthetic fixture; node count non-determinism (39–92 for same input in sprint 4) is a usability risk at scale; real SME on real codebase unvalidated |
+| Thesis | 9/10 | ↑ +2 | Operational SSR (sprints 0–2) + community-level queries (sprint 3) + domain SSR correction loop (sprint 4) experimentally validated; Gap Reports (Loop 2) is the remaining unproven claim |
+| Observability | 7/10 | ↑ +1 | Per-sprint cost/token/model tracked; prompt versioning audit trail live; per-call span visibility (AS-54) still deferred |
 
 The system that knows what it does not know is more trustworthy than one that silently covers gaps. Gap Reports and loop exit criteria are evidence of self-awareness — which changes the risk profile more than the scores capture.
